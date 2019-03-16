@@ -4,14 +4,14 @@ import argparse
 import numpy as np
 from PIL import Image
 from config import DEBUG
-
+from tqdm import tqdm
 
 def config():
     parser = argparse.ArgumentParser(description='config the source data path')
     parser.add_argument('--WILDER_FACE_txt_path',
-                        default='/Users/chenlinwei/Downloads/WILDER_FACE/wider_face_split/wider_face_train_bbx_gt.txt',
+                        default='/Users/chenlinwei/Dataset/WILDER_FACE/wider_face_split/wider_face_train_short.txt',
                         type=str, help='the path of WILDER FACE .txt file')
-    parser.add_argument('--WILDER_FACE_dir', default='/Users/chenlinwei/Downloads/WILDER_FACE/WIDER_train',
+    parser.add_argument('--WILDER_FACE_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
                         type=str, help='the dir of WILDER FACE image file')
     parser.add_argument('--CelebA_txt_path', default='none', type=str, help='the path of CelebA .txt file')
     parser.add_argument('--CelebA_dir', default='none', type=str, help='the dir of CelebA image file')
@@ -58,6 +58,8 @@ def WILDER_FACE_txt_parser(txt_path, img_dir):
                         if DEBUG: print('Valid image')
                     except Exception:
                         if DEBUG: print('Invalid image')
+                else:
+                    print("*** warning:image path invalid")
                 line_counter += (2 + faces_num)
 
         if DEBUG:
@@ -83,39 +85,44 @@ def CelebA_txt_parser(txt_path, img_dir):
         print('*** warning:CelebA txt file not exist!')
 
 
-def P_Net_dataset(img_faces, output_path, dir_name):
-    dir = osp.join(output_path, 'P_Net_dataset')
-    if not osp.exists(dir):
-        os.makedirs(dir)
+def P_Net_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_size=12):
+    save_dir = osp.join(output_path, save_dir_name)
+    if not osp.exists(save_dir):
+        os.makedirs(save_dir)
     if DEBUG:
         # Image.open()
         pass
-    for item in img_faces:
-        try:
-            img = Image.open(item[0])
-            # get the img name
-            img_file_name = osp.split(osp.split(item[0])[1])[0]
-            if DEBUG: print(img_file_name)
-            img_np = np.asarray(img)
-            height, width, channel = img_np.shape
-            # if DEBUG: print(img_np.shape)
-            faces = item[1]
-            _ = osp.join(dir, img_file_name)
-            if not osp.exists(_):
-                os.makedirs(_)
-            for face in faces:
-                size = np.random.randint(12, min(width, height))
-                nx = np.random.randint(0, width - size)
-                ny = np.random.randint(0, height - size)
-                crop_box = np.array([nx, ny, nx + size, ny + size])
-                x1, y1, w, h = [int(i) for i in face]
-                if DEBUG: print(x1, y1, w, h)
-                face = img_np[y1:y1 + h, x1:x1 + w, :]
-                face = Image.fromarray(face)
-                # if DEBUG: face.show()
-                # face.save()
-        except Exception:
-            continue
+    for item in tqdm(img_faces):
+        # try:
+        img = Image.open(item[0])
+        # get the img name, not including the file extension
+        img_file_name = osp.splitext(osp.split(item[0])[1])[0]
+        if DEBUG: print(img_file_name)
+        # transfer to np
+        img_np = np.asarray(img)
+        # get shape
+        height, width, channel = img_np.shape
+        # if DEBUG: print(img_np.shape)
+        faces = item[1]
+        crop_img_save_dir = osp.join(save_dir, img_file_name)
+        if not osp.exists(crop_img_save_dir):
+            os.makedirs(crop_img_save_dir)
+        faces = np.array(faces)
+        if DEBUG: print(faces.shape)
+        for face in faces:
+            size = np.random.randint(crop_size, min(width, height))
+            nx = np.random.randint(0, width - size)
+            ny = np.random.randint(0, height - size)
+            crop_box = np.array([nx, ny, nx + size, ny + size])
+            x1, y1, w, h = [int(i) for i in face]
+            if DEBUG: print(x1, y1, w, h)
+            face = img_np[y1:y1 + h, x1:x1 + w, :]
+            face = Image.fromarray(face)
+            # if DEBUG: face.show()
+            # face.save()
+        # except Exception:
+        #     if DEBUG: print("*** something wrong, skip this img and not crop to data_set")
+        #     continue
 
 
 def R_Net_dataset():
@@ -131,6 +138,7 @@ def O_Net_landmark_dataset():
 
 
 if __name__ == '__main__':
+    print("Testing...")
     args = config()
     img_faces = WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
     P_Net_dataset(img_faces, output_path=args.output_path)
