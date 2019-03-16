@@ -2,7 +2,7 @@ import os
 from os import path as osp
 import argparse
 import numpy as np
-from numpy.random import normal
+from numpy.random import uniform
 import PIL
 from PIL import Image
 from config import DEBUG
@@ -91,7 +91,7 @@ def CelebA_txt_parser(txt_path, img_dir):
 
 
 # create positive, negative, part face sample for ratio of 3:1:1 where 1 means 10
-def class_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_size=12):
+def class_dataset(img_faces, output_path, save_dir_name, crop_size):
     save_dir = osp.join(output_path, save_dir_name)
     if not osp.exists(save_dir):
         os.makedirs(save_dir)
@@ -131,10 +131,11 @@ def class_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_si
                 if pf_ct >= 10 and p_ct >= 10 and n_ct >= 10: break
                 sigma = sigma_list[(p_ct >= 10) + (pf_ct >= 10 and p_ct >= 10)]
                 max_size = min(width, height)
-                size = (normal() * sigma + 1) * face_max_size
-                size = min(max(crop_size, size), max_size)
+                size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
+                # 保证大于剪切的尺寸要大于一个值
+                size = min(max(12, size), max_size)
                 if DEBUG: print('size:', size)
-                crop_x1, crop_y1 = (normal() * sigma + 1) * x1, (normal() * sigma + 1) * y1
+                crop_x1, crop_y1 = (uniform(-1.0, 1.0) * sigma + 1) * x1, (uniform(-1.0, 1.0) * sigma + 1) * y1
                 crop_x1, crop_y1 = min(max(0, crop_x1), width - size), min(max(0, crop_y1), height - size)
                 crop_box = np.array([crop_x1, crop_y1, crop_x1 + size, crop_y1 + size])
                 if DEBUG: print('crop_box:', crop_box, 'faces_two_points:', faces_two_points)
@@ -214,7 +215,11 @@ def O_Net_landmark_dataset():
 
 
 if __name__ == '__main__':
-    print("Testing...")
+    print("Creating datasets...")
     args = config()
     img_faces = WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
-    P_Net_dataset(img_faces, output_path=args.output_path)
+    data_set_config = {'P_Net_dataset': 12,
+                       'R_Net_dataset': 24,
+                       'O_Net_dataset': 48}
+    for dir in data_set_config:
+        class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=data_set_config[dir])
