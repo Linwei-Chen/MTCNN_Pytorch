@@ -93,7 +93,7 @@ def get_image_boxes(bounding_boxes, img, size=24):
         img_box = img_box.resize((size, size), Image.BILINEAR)
         img_box = np.asarray(img_box, 'float32')
 
-        img_boxes[i, :, :, :] = _preprocess(img_box)
+        img_boxes[i, :, :, :] = img_normalization(img_box)
 
     return img_boxes
 
@@ -142,7 +142,9 @@ def img_normalization(img):
 
 
 def IoU(box, boxes):
-    """ Compute IoU between detect box and gt boxes """
+    """
+    Compute IoU between detect box and gt boxes
+    """
     # box = (x1, y1, x2, y2)
     box_area = (box[2] - box[0] + 1) * (box[3] - box[1] + 1)
     area = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)

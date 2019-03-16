@@ -2,9 +2,13 @@ import os
 from os import path as osp
 import argparse
 import numpy as np
+from numpy.random import normal
+import PIL
 from PIL import Image
 from config import DEBUG
 from tqdm import tqdm
+from util import IoU
+
 
 def config():
     parser = argparse.ArgumentParser(description='config the source data path')
@@ -46,7 +50,8 @@ def WILDER_FACE_txt_parser(txt_path, img_dir):
                     face_pos = lines[line_counter + 1 + i + 1].split()
                     # [x1, y1, w, h]
                     face_pos = face_pos[:4]
-                    # print(face_pos)
+                    face_pos = [int(i) for i in face_pos]
+                    if DEBUG: print('face_pos:', face_pos)
                     faces_pos.append(face_pos)
                 real_img_path = osp.join(img_dir, img_path)
                 # if DEBUG: print(real_img_path)
@@ -85,19 +90,19 @@ def CelebA_txt_parser(txt_path, img_dir):
         print('*** warning:CelebA txt file not exist!')
 
 
-def P_Net_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_size=12):
+# create positive, negative, part face sample for ratio of 3:1:1 where 1 means 10
+def class_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_size=12):
     save_dir = osp.join(output_path, save_dir_name)
     if not osp.exists(save_dir):
         os.makedirs(save_dir)
-    if DEBUG:
-        # Image.open()
-        pass
+    f = open(osp.join(save_dir, '{}.txt'.format(save_dir_name)), mode='a')
+    img_id = 0
     for item in tqdm(img_faces):
         # try:
         img = Image.open(item[0])
         # get the img name, not including the file extension
         img_file_name = osp.splitext(osp.split(item[0])[1])[0]
-        if DEBUG: print(img_file_name)
+        # if DEBUG: print(img_file_name)
         # transfer to np
         img_np = np.asarray(img)
         # get shape
@@ -108,21 +113,92 @@ def P_Net_dataset(img_faces, output_path, save_dir_name='P_Net_dataset', crop_si
         if not osp.exists(crop_img_save_dir):
             os.makedirs(crop_img_save_dir)
         faces = np.array(faces)
-        if DEBUG: print(faces.shape)
+        faces_two_points = faces.copy()
+        if DEBUG: print('faces.shape:', faces.shape)
+        faces_two_points[:, 2] = faces[:, 0] + faces[:, 2]
+        faces_two_points[:, 3] = faces[:, 1] + faces[:, 3]
+        # if DEBUG: print('faces_two_points:', faces_two_points)
+        faces_num = len(faces)
+        if DEBUG: print('faces_num:', faces_num)
+        # *** create positive samples
+        sigma_list = [0.02, 0.1, 0.2]
         for face in faces:
-            size = np.random.randint(crop_size, min(width, height))
-            nx = np.random.randint(0, width - size)
-            ny = np.random.randint(0, height - size)
-            crop_box = np.array([nx, ny, nx + size, ny + size])
-            x1, y1, w, h = [int(i) for i in face]
-            if DEBUG: print(x1, y1, w, h)
-            face = img_np[y1:y1 + h, x1:x1 + w, :]
-            face = Image.fromarray(face)
-            # if DEBUG: face.show()
-            # face.save()
-        # except Exception:
-        #     if DEBUG: print("*** something wrong, skip this img and not crop to data_set")
-        #     continue
+            x1, y1, w, h = face
+            face_max_size = max(w, h)
+            # counter for positive, negative, part face sample
+            p_ct, n_ct, pf_ct = 0, 0, 0
+            for i in range(100):
+                if pf_ct >= 10 and p_ct >= 10 and n_ct >= 10: break
+                sigma = sigma_list[(p_ct >= 10) + (pf_ct >= 10 and p_ct >= 10)]
+                max_size = min(width, height)
+                size = (normal() * sigma + 1) * face_max_size
+                size = min(max(crop_size, size), max_size)
+                if DEBUG: print('size:', size)
+                crop_x1, crop_y1 = (normal() * sigma + 1) * x1, (normal() * sigma + 1) * y1
+                crop_x1, crop_y1 = min(max(0, crop_x1), width - size), min(max(0, crop_y1), height - size)
+                crop_box = np.array([crop_x1, crop_y1, crop_x1 + size, crop_y1 + size])
+                if DEBUG: print('crop_box:', crop_box, 'faces_two_points:', faces_two_points)
+                iou = IoU(crop_box, faces_two_points)
+                iou_max_idx = iou.argmax()
+                iou = iou.max()
+                if DEBUG: print('iou', iou)
+                crop_box = [int(i) for i in crop_box]
+                crop_img_np = img_np[crop_box[1]:crop_box[3], crop_box[0]:crop_box[2]]
+                crop_img = Image.fromarray(crop_img_np)
+                crop_img = crop_img.resize((crop_size, crop_size), resample=PIL.Image.BILINEAR)
+                real_face_pos = np.array([
+                    (faces_two_points[iou_max_idx][0] - crop_box[0]) / w,
+                    (faces_two_points[iou_max_idx][1] - crop_box[1]) / h,
+                    (faces_two_points[iou_max_idx][2] - crop_box[2]) / w,
+                    (faces_two_points[iou_max_idx][3] - crop_box[3]) / h,
+                ])
+                real_face_pos = [i for i in real_face_pos]
+                if DEBUG: print('real_face_pos:', real_face_pos)
+                img_id += 1
+                if p_ct < 10 and iou >= 0.65:
+                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
+                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
+                    crop_img.save(_, format='jpeg')
+                    _ = osp.join(img_file_name, crop_img_file_name)
+                    f.write(_ + ' p ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
+                    p_ct += 1
+                elif pf_ct < 10 and (0.4 < iou < 0.65):
+                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
+                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
+                    crop_img.save(_, format='jpeg')
+                    _ = osp.join(img_file_name, crop_img_file_name)
+                    f.write(_ + ' pf ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
+                    pf_ct += 1
+                elif n_ct < 10 and iou < 0.3:
+                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
+                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
+                    crop_img.save(_, format='jpeg')
+                    _ = osp.join(img_file_name, crop_img_file_name)
+                    f.write(_ + ' n' + '\n')
+                    n_ct += 1
+                else:
+                    img_id -= 1
+            n_ct = 0
+            for i in range(50):
+                if n_ct >= 20: break
+                size = np.random.randint(12, min(width, height))
+                x1 = np.random.randint(0, width - size)
+                y1 = np.random.randint(0, height - size)
+                crop_box = np.array([x1, y1, x1 + size, y1 + size])
+                iou = IoU(crop_box, faces_two_points).max()
+                if iou < 0.3:
+                    crop_box = [int(i) for i in crop_box]
+                    crop_img_np = img_np[crop_box[1]:crop_box[3], crop_box[0]:crop_box[2]]
+                    crop_img = Image.fromarray(crop_img_np)
+                    crop_img = crop_img.resize((crop_size, crop_size), resample=PIL.Image.BILINEAR)
+                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
+                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
+                    crop_img.save(_, format='jpeg')
+                    _ = osp.join(img_file_name, crop_img_file_name)
+                    f.write(_ + ' n' + '\n')
+                    n_ct += 1
+                    img_id += 1
+    f.close()
 
 
 def R_Net_dataset():
