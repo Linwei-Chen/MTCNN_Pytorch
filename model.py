@@ -35,12 +35,11 @@ class P_Net(nn.Module):
         # weight initiation with xavier
         self.apply(weights_init)
 
-
     def forward(self, x):
-        x=self.pre_layer(x)
-        det=self.conv4_1(x)
-        box=self.conv4_2(x)
-        landmark=self.conv4_3(x)
+        x = self.pre_layer(x)
+        det = self.conv4_1(x)
+        box = self.conv4_2(x)
+        landmark = self.conv4_3(x)
         # det:[,2,1,1], box:[,4,1,1], landmark:[,10,1,1]
         return det, box, landmark
 
@@ -52,16 +51,21 @@ class R_Net(nn.Module):
             # 24x24x3
             nn.Conv2d(3, 28, kernel_size=3, stride=1),  # conv1
             nn.PReLU(),  # prelu1
-            # 
+            # 22x22x28
             nn.MaxPool2d(kernel_size=3, stride=2),  # pool1
+            # 10x10x28
             nn.Conv2d(28, 48, kernel_size=3, stride=1),  # conv2
             nn.PReLU(),  # prelu2
+            # 8x8x48
             nn.MaxPool2d(kernel_size=3, stride=2),  # pool2
+            # 3x3x48
             nn.Conv2d(48, 64, kernel_size=2, stride=1),  # conv3
+            # 2x2x64
             nn.PReLU()  # prelu3
-
         )
+        # 2x2x64
         self.conv4 = nn.Linear(64 * 2 * 2, 128)  # conv4
+        # 128
         self.prelu4 = nn.PReLU()  # prelu4
         # detection
         self.conv5_1 = nn.Linear(128, 1)
@@ -73,7 +77,13 @@ class R_Net(nn.Module):
         self.apply(weights_init)
         pass
 
-    def forward(self, *input):
+    def forward(self, x):
+        x = self.pre_layer(x)
+        x = self.conv4(x)
+        x = self.prelu4(x)
+        det = self.conv5_1(x)
+        box = self.conv5_2(x)
+        landmark = self.conv5_3(x)
         pass
 
 
