@@ -113,7 +113,6 @@ class O_Net(nn.Module):
         self.conv6_3 = nn.Linear(256, 10)
         # weight initiation weih xavier
         self.apply(weights_init)
-        pass
 
     def forward(self, *input):
         pass

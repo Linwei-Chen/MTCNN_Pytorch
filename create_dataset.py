@@ -90,7 +90,10 @@ def CelebA_txt_parser(txt_path, img_dir):
         print('*** warning:CelebA txt file not exist!')
 
 
-# create positive, negative, part face sample for ratio of 3:1:1 where 1 means 10
+# create positive, negative, part face sample for ratio of 3:1:1 where 1 means
+Augment = 2
+
+
 def class_dataset(img_faces, output_path, save_dir_name, crop_size):
     save_dir = osp.join(output_path, save_dir_name)
     if not osp.exists(save_dir):
@@ -127,9 +130,9 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
             face_max_size = max(w, h)
             # counter for positive, negative, part face sample
             p_ct, n_ct, pf_ct = 0, 0, 0
-            for i in range(100):
-                if pf_ct >= 10 and p_ct >= 10 and n_ct >= 10: break
-                sigma = sigma_list[(p_ct >= 10) + (pf_ct >= 10 and p_ct >= 10)]
+            for i in range(Augment * 10):
+                if pf_ct >= Augment * 1 and p_ct >= Augment * 1 and n_ct >= Augment * 1: break
+                sigma = sigma_list[(p_ct >= Augment * 1) + (pf_ct >= Augment * 1 and p_ct >= Augment * 1)]
                 max_size = min(width, height)
                 size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
                 # 保证大于剪切的尺寸要大于一个值
@@ -156,21 +159,21 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
                 real_face_pos = [i for i in real_face_pos]
                 if DEBUG: print('real_face_pos:', real_face_pos)
                 img_id += 1
-                if p_ct < 10 and iou >= 0.65:
+                if p_ct < Augment * 1 and iou >= 0.65:
                     crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
                     _ = osp.join(crop_img_save_dir, crop_img_file_name)
                     crop_img.save(_, format='jpeg')
                     _ = osp.join(img_file_name, crop_img_file_name)
                     f.write(_ + ' p ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
                     p_ct += 1
-                elif pf_ct < 10 and (0.4 < iou < 0.65):
+                elif pf_ct < Augment * 1 and (0.4 < iou < 0.65):
                     crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
                     _ = osp.join(crop_img_save_dir, crop_img_file_name)
                     crop_img.save(_, format='jpeg')
                     _ = osp.join(img_file_name, crop_img_file_name)
                     f.write(_ + ' pf ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
                     pf_ct += 1
-                elif n_ct < 10 and iou < 0.3:
+                elif n_ct < Augment * 1 and iou < 0.3:
                     crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
                     _ = osp.join(crop_img_save_dir, crop_img_file_name)
                     crop_img.save(_, format='jpeg')
@@ -180,8 +183,8 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
                 else:
                     img_id -= 1
             n_ct = 0
-            for i in range(50):
-                if n_ct >= 20: break
+            for i in range(Augment * 5):
+                if n_ct >= Augment * 2: break
                 size = np.random.randint(12, min(width, height))
                 x1 = np.random.randint(0, width - size)
                 y1 = np.random.randint(0, height - size)
@@ -202,21 +205,14 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
     f.close()
 
 
-def R_Net_dataset():
-    pass
-
-
-def O_Net_dataset():
-    pass
-
-
-def O_Net_landmark_dataset():
+def O_Net_landmark_dataset(landmark_faces, output_path, ):
     pass
 
 
 if __name__ == '__main__':
     print("Creating datasets...")
     args = config()
+    print(args)
     img_faces = WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
     data_set_config = {'P_Net_dataset': 12,
                        'R_Net_dataset': 24,
