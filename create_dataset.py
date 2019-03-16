@@ -15,6 +15,8 @@ def config():
                         type=str, help='the dir of WILDER FACE image file')
     parser.add_argument('--CelebA_txt_path', default='none', type=str, help='the path of CelebA .txt file')
     parser.add_argument('--CelebA_dir', default='none', type=str, help='the dir of CelebA image file')
+    parser.add_argument('--output_path', default='/Users/chenlinwei/Dataset', type=str,
+                        help='the path to save the created dataset at')
     args = parser.parse_args()
     return args
 
@@ -53,9 +55,9 @@ def WILDER_FACE_txt_parser(txt_path, img_dir):
                     try:
                         Image.open(real_img_path).verify()
                         img_faces.append([real_img_path, faces_pos])
-                        print('Valid image')
+                        if DEBUG: print('Valid image')
                     except Exception:
-                        print('Invalid image')
+                        if DEBUG: print('Invalid image')
                 line_counter += (2 + faces_num)
 
         if DEBUG:
@@ -64,8 +66,6 @@ def WILDER_FACE_txt_parser(txt_path, img_dir):
         return img_faces
     else:
         print('*** warning:WILDER_FACE txt file not exist!')
-
-
 
 
 def CelebA_txt_parser(txt_path, img_dir):
@@ -83,12 +83,39 @@ def CelebA_txt_parser(txt_path, img_dir):
         print('*** warning:CelebA txt file not exist!')
 
 
-def P_Net_dataset(img_faces):
-    """
-    :param img_faces:
-    :return:
-    """
-    if DEBUG
+def P_Net_dataset(img_faces, output_path, dir_name):
+    dir = osp.join(output_path, 'P_Net_dataset')
+    if not osp.exists(dir):
+        os.makedirs(dir)
+    if DEBUG:
+        # Image.open()
+        pass
+    for item in img_faces:
+        try:
+            img = Image.open(item[0])
+            # get the img name
+            img_file_name = osp.split(osp.split(item[0])[1])[0]
+            if DEBUG: print(img_file_name)
+            img_np = np.asarray(img)
+            height, width, channel = img_np.shape
+            # if DEBUG: print(img_np.shape)
+            faces = item[1]
+            _ = osp.join(dir, img_file_name)
+            if not osp.exists(_):
+                os.makedirs(_)
+            for face in faces:
+                size = np.random.randint(12, min(width, height))
+                nx = np.random.randint(0, width - size)
+                ny = np.random.randint(0, height - size)
+                crop_box = np.array([nx, ny, nx + size, ny + size])
+                x1, y1, w, h = [int(i) for i in face]
+                if DEBUG: print(x1, y1, w, h)
+                face = img_np[y1:y1 + h, x1:x1 + w, :]
+                face = Image.fromarray(face)
+                # if DEBUG: face.show()
+                # face.save()
+        except Exception:
+            continue
 
 
 def R_Net_dataset():
@@ -105,4 +132,5 @@ def O_Net_landmark_dataset():
 
 if __name__ == '__main__':
     args = config()
-    WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
+    img_faces = WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
+    P_Net_dataset(img_faces, output_path=args.output_path)
