@@ -11,6 +11,7 @@ from model import P_Net, R_Net, O_Net, LossFn
 from dataset import mtcnn_dataset
 from config import DEBUG
 import random
+import time
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if torch.cuda.is_available():
@@ -60,7 +61,10 @@ def config():
                         help='workers for loading the data')
     parser.add_argument('--half_lr_steps', type=int,
                         default=10000,
-                        help='half the lr every half_lr_steps batches')
+                        help='half the lr every half_lr_steps iter')
+    parser.add_argument('--save_steps', type=int,
+                        default=1000,
+                        help='save para, model every save_steps iter')
 
     args = parser.parse_args()
 
@@ -141,8 +145,8 @@ def save_safely(file, dir_path, file_name):
 
 
 def train_net(args, net_name='pnet'):
-    pnet = load_net(args, net_name)
-    optimizer = opt.Adam(pnet.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, amsgrad=True)
+    net = load_net(args, net_name)
+    optimizer = opt.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, amsgrad=True)
     loss = LossFn(cls_factor=1, box_factor=0.5, landmark_factor=0.5)
     para = load_para()
     lr = para['lr']
@@ -151,15 +155,33 @@ def train_net(args, net_name='pnet'):
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
     data_set = get_dataset(args, net_name)
-    for iter, (img_tensor, label, offset, landmark) in enumerate(data_set, iter_count):
+    t0 = time.perf_counter()
+    for _, (img_tensor, label, offset, landmark) in enumerate(data_set, iter_count):
+        iter_count += 1
+        # update lr rate
+        if 0 == iter_count % args.half_lr_steps:
+            lr /= 2
+            para.update({'lr': lr})
+            for param_groups in optimizer.param_groups:
+                param_groups['lr'] = lr
         wrap = (img_tensor, label, offset, landmark)
         (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
-        det, box, landmark = pnet(img_tensor)
+        det, box, landmark = net(img_tensor)
         optimizer.zero_grad()
         all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box)
-        print('loss:{:.8f}'.format(all_loss.item()))
+        t1 = time.perf_counter()
+        print('===> iter:{}\t| loss:{:.8f}\t| time:{:.8f}'.format(iter_count, all_loss.item(), t1 - t0))
+        t0 = time.perf_counter()
         all_loss.backward()
         optimizer.step()
+        if 0 == iter_count % args.save_steps:
+            para.update({
+                'lr': lr,
+                'iter': iter_count,
+                'optimizer_param': optimizer.state_dict()['param_groups'][0]
+            })
+            save_safely(net.state_dict(), args.save_folder, net_name + '.pkl')
+            save_safely(para, args.save_folder, net_name + '_para.pkl')
 
 
 def load_txt(data_path):
@@ -187,4 +209,4 @@ def load_txt(data_path):
 
 if __name__ == '__main__':
     args = config()
-    train_net(args,'pnet')
+    train_net(args, 'pnet')

@@ -22,8 +22,8 @@ class mtcnn_dataset(data.Dataset):
         label = torch.tensor(1.0) if item[1] in ['p', 'pt', 'l'] else torch.tensor(0.0)
         offset = torch.Tensor(item[2]) if 4 == len(item[2]) else torch.tensor([0.0 for i in range(4)])
         landmark = torch.Tensor(item[3]) if 10 == len(item[3]) else torch.tensor([0.0 for i in range(10)])
-        print('data_imformation:', osp.splitext(item[0])[0], label, offset, landmark)
-        return img_tensor, label, offset, landmark
+        # print('data_imformation:', osp.splitext(item[0])[0], label, offset, landmark)
+        return (img_tensor, label, offset, landmark)#, item[1]
 
     def __len__(self):
         return len(self.data_list)
