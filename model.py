@@ -27,7 +27,7 @@ class P_Net(nn.Module):
             nn.PReLU()  # PReLU3
         )
         # detection
-        self.conv4_1 = nn.Conv2d(32, 2, kernel_size=1, stride=1)
+        self.conv4_1 = nn.Conv2d(32, 1, kernel_size=1, stride=1)
         # bounding box regresion
         self.conv4_2 = nn.Conv2d(32, 4, kernel_size=1, stride=1)
         # landmark localization
@@ -37,7 +37,7 @@ class P_Net(nn.Module):
 
     def forward(self, x):
         x = self.pre_layer(x)
-        det = self.conv4_1(x)
+        det = F.sigmoid(self.conv4_1(x))
         box = self.conv4_2(x)
         landmark = self.conv4_3(x)
         # det:[,2,1,1], box:[,4,1,1], landmark:[,10,1,1]
@@ -116,3 +116,77 @@ class O_Net(nn.Module):
 
     def forward(self, *input):
         pass
+
+
+class LossFn:
+    def __init__(self, cls_factor=1, box_factor=1, landmark_factor=1):
+        # loss function
+        self.cls_factor = cls_factor
+        self.box_factor = box_factor
+        self.land_factor = landmark_factor
+        # binary cross entropy:
+        self.loss_cls = nn.BCELoss()
+        # mean square error
+        # i.e. ||x-y||^2_2
+        self.loss_box = nn.MSELoss()
+        self.loss_landmark = nn.MSELoss()
+
+    # gt=ground_truth
+    def cls_loss(self, gt_label, pred_label):
+        # pred_label: [batch_size, 1, 1, 1] to [batch_size]
+        pred_label = torch.squeeze(pred_label)
+        # gt_label: [batch_size, 1] to [batch_size ]
+        gt_label = torch.squeeze(gt_label)
+        # get the mask element which >= 0, only 0 and 1 can effect the detection loss
+        # mask = torch.ge(gt_label, 0)
+        mask = torch.ge(gt_label, 0)
+        valid_gt_label = torch.masked_select(gt_label, mask)
+        valid_pred_label = torch.masked_select(pred_label, mask)
+        return self.loss_cls(valid_pred_label, valid_gt_label) * self.cls_factor
+
+    def box_loss(self, gt_label, gt_offset, pred_offset):
+        # pred_offset: [batch_size, 4] to [batch_size,4]
+        pred_offset = torch.squeeze(pred_offset)
+        # gt_offset: [batch_size, 4, 1, 1] to [batch_size,4]
+        gt_offset = torch.squeeze(gt_offset)
+        # gt_label: [batch_size, 1, 1, 1] to [batch_size]
+        gt_label = torch.squeeze(gt_label)
+
+        # get the mask element which != 0
+        unmask = torch.eq(gt_label, 0)
+        mask = torch.eq(unmask, 0)
+        # convert mask to dim index
+        '''
+        >> > torch.nonzero(torch.tensor([[0.6, 0.0, 0.0, 0.0],
+                                         [0.0, 0.4, 0.0, 0.0],
+                                         [0.0, 0.0, 1.2, 0.0],
+                                         [0.0, 0.0, 0.0, -0.4]]))
+        tensor([[0, 0],
+                [1, 1],
+                [2, 2],
+                [3, 3]])
+        '''
+        chose_index = torch.nonzero(mask.data)
+        chose_index = torch.squeeze(chose_index)
+        # only valid element can effect the loss
+        valid_gt_offset = gt_offset[chose_index, :]
+        valid_pred_offset = pred_offset[chose_index, :]
+        return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
+
+    def landmark_loss(self, gt_label, gt_landmark=None, pred_landmark=None):
+        if gt_landmark is None:
+            return torch.tensor(0.0)
+        # pred_landmark:[batch_size,10,1,1] to [batch_size,10]
+        pred_landmark = torch.squeeze(pred_landmark)
+        # gt_landmark:[batch_size,10] to [batch_size,10]
+        gt_landmark = torch.squeeze(gt_landmark)
+        # gt_label:[batch_size,1] to [batch_size]
+        gt_label = torch.squeeze(gt_label)
+        mask = torch.eq(gt_label, 1)
+
+        chose_index = torch.nonzero(mask.data)
+        chose_index = torch.squeeze(chose_index)
+
+        valid_gt_landmark = gt_landmark[chose_index, :]
+        valid_pred_landmark = pred_landmark[chose_index, :]
+        return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
