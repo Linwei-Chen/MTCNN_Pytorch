@@ -5,8 +5,8 @@ import torch.nn.functional as F
 
 def weights_init(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        nn.init.xavier_uniform(m.weight.data)
-        nn.init.constant(m.bias, 0.1)
+        nn.init.xavier_uniform_(m.weight.data)
+        nn.init.constant_(m.bias, 0.1)
 
 
 class P_Net(nn.Module):
@@ -145,6 +145,8 @@ class LossFn:
         return self.loss_cls(valid_pred_label, valid_gt_label) * self.cls_factor
 
     def box_loss(self, gt_label, gt_offset, pred_offset):
+        if gt_label is False:
+            return torch.tensor(0.0)
         # pred_offset: [batch_size, 4] to [batch_size,4]
         pred_offset = torch.squeeze(pred_offset)
         # gt_offset: [batch_size, 4, 1, 1] to [batch_size,4]
@@ -174,7 +176,7 @@ class LossFn:
         return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
 
     def landmark_loss(self, gt_label, gt_landmark=None, pred_landmark=None):
-        if gt_landmark is None:
+        if gt_label is False or gt_landmark is None:
             return torch.tensor(0.0)
         # pred_landmark:[batch_size,10,1,1] to [batch_size,10]
         pred_landmark = torch.squeeze(pred_landmark)
@@ -190,3 +192,8 @@ class LossFn:
         valid_gt_landmark = gt_landmark[chose_index, :]
         valid_pred_landmark = pred_landmark[chose_index, :]
         return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
+
+    def total_loss(self, gt_label, pred_label, gt_offset, pred_offset, gt_landmark=None, pred_landmark=None):
+        return self.cls_loss(gt_label, pred_label) \
+               + self.box_loss(gt_label, gt_offset, pred_offset) \
+               + self.landmark_loss(gt_label, gt_landmark, pred_landmark)
