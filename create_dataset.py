@@ -91,7 +91,7 @@ def CelebA_txt_parser(txt_path, img_dir):
 
 
 # create positive, negative, part face sample for ratio of 3:1:1 where 1 means
-Augment = 2
+Augment = 5
 
 
 def class_dataset(img_faces, output_path, save_dir_name, crop_size):

@@ -1,6 +1,4 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from config import *
 
 
 def weights_init(m):
@@ -37,7 +35,7 @@ class P_Net(nn.Module):
 
     def forward(self, x):
         x = self.pre_layer(x)
-        det = F.sigmoid(self.conv4_1(x))
+        det = torch.sigmoid(self.conv4_1(x))
         box = self.conv4_2(x)
         landmark = self.conv4_3(x)
         # det:[,2,1,1], box:[,4,1,1], landmark:[,10,1,1]
@@ -75,16 +73,16 @@ class R_Net(nn.Module):
         self.conv5_3 = nn.Linear(128, 10)
         # weight initiation weih xavier
         self.apply(weights_init)
-        pass
 
     def forward(self, x):
         x = self.pre_layer(x)
+        x = x.view(x.size(0), -1)
         x = self.conv4(x)
         x = self.prelu4(x)
-        det = self.conv5_1(x)
+        det = torch.sigmoid(self.conv5_1(x))
         box = self.conv5_2(x)
         landmark = self.conv5_3(x)
-        pass
+        return det, box, landmark
 
 
 class O_Net(nn.Module):
@@ -140,13 +138,17 @@ class LossFn:
         # get the mask element which >= 0, only 0 and 1 can effect the detection loss
         # mask = torch.ge(gt_label, 0)
         mask = torch.ge(gt_label, 0)
-        valid_gt_label = torch.masked_select(gt_label, mask)
-        valid_pred_label = torch.masked_select(pred_label, mask)
+        # valid_gt_label = torch.masked_select(gt_label, mask)
+        # valid_pred_label = torch.masked_select(pred_label, mask)
+        valid_gt_label = gt_label[mask]
+        valid_pred_label = pred_label[mask]
+        # print(valid_pred_label, valid_gt_label)
         return self.loss_cls(valid_pred_label, valid_gt_label) * self.cls_factor
+        # return torch.tensor([0.])
 
     def box_loss(self, gt_label, gt_offset, pred_offset):
-        if gt_label is False:
-            return torch.tensor(0.0)
+        # if gt_label is torch.tensor([0.0]):
+        #     return torch.tensor([0.0])
         # pred_offset: [batch_size, 4] to [batch_size,4]
         pred_offset = torch.squeeze(pred_offset)
         # gt_offset: [batch_size, 4, 1, 1] to [batch_size,4]
@@ -155,8 +157,9 @@ class LossFn:
         gt_label = torch.squeeze(gt_label)
 
         # get the mask element which != 0
-        unmask = torch.eq(gt_label, 0)
-        mask = torch.eq(unmask, 0)
+        # unmask = torch.eq(gt_label, 0)
+        # mask = torch.eq(unmask, 0)
+        mask = torch.eq(gt_label, 1)
         # convert mask to dim index
         '''
         >> > torch.nonzero(torch.tensor([[0.6, 0.0, 0.0, 0.0],
@@ -168,16 +171,29 @@ class LossFn:
                 [2, 2],
                 [3, 3]])
         '''
-        chose_index = torch.nonzero(mask.data)
-        chose_index = torch.squeeze(chose_index)
+        # chose_index = torch.nonzero(mask.data)
+        # chose_index = torch.squeeze(chose_index)
         # only valid element can effect the loss
-        valid_gt_offset = gt_offset[chose_index, :]
-        valid_pred_offset = pred_offset[chose_index, :]
-        return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
+        # print('chose_index', chose_index)
+        # valid_gt_offset = gt_offset[chose_index, :]
+        # valid_pred_offset = pred_offset[chose_index, :]
+        valid_gt_offset = gt_offset[mask, :]
+        valid_pred_offset = pred_offset[mask, :]
+        # print('valid_gt_offset', valid_gt_offset, 'valid_pred_offset', valid_pred_offset)
+        valid_sample_num = valid_gt_offset.shape[0]
+        if 0 == valid_sample_num:
+            # print('No box')
+            # return self.loss_box(torch.tensor([0.0]), torch.tensor([0.0]))
+            return torch.tensor([0.0])
+        else:
+            print('valid_sample_num', valid_sample_num)
+            return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
+        # return torch.tensor([0.])
 
     def landmark_loss(self, gt_label, gt_landmark=None, pred_landmark=None):
-        if gt_label is False or gt_landmark is None:
-            return torch.tensor(0.0)
+        if gt_landmark is None:
+            # print('no landmark loss')
+            return torch.tensor([0.0])
         # pred_landmark:[batch_size,10,1,1] to [batch_size,10]
         pred_landmark = torch.squeeze(pred_landmark)
         # gt_landmark:[batch_size,10] to [batch_size,10]
@@ -185,15 +201,20 @@ class LossFn:
         # gt_label:[batch_size,1] to [batch_size]
         gt_label = torch.squeeze(gt_label)
         mask = torch.eq(gt_label, 1)
-
-        chose_index = torch.nonzero(mask.data)
-        chose_index = torch.squeeze(chose_index)
-
-        valid_gt_landmark = gt_landmark[chose_index, :]
-        valid_pred_landmark = pred_landmark[chose_index, :]
+        # chose_index = torch.nonzero(mask.data)
+        # chose_index = torch.squeeze(chose_index)
+        # valid_gt_landmark = gt_landmark[chose_index, :]
+        # valid_pred_landmark = pred_landmark[chose_index, :]
+        valid_gt_landmark = gt_landmark[mask, :]
+        valid_pred_landmark = pred_landmark[mask, :]
+        # print('valid_pred_landmark', valid_pred_landmark, 'valid_gt_landmark', valid_gt_landmark)
         return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
 
     def total_loss(self, gt_label, pred_label, gt_offset, pred_offset, gt_landmark=None, pred_landmark=None):
         return self.cls_loss(gt_label, pred_label) \
                + self.box_loss(gt_label, gt_offset, pred_offset) \
                + self.landmark_loss(gt_label, gt_landmark, pred_landmark)
+
+
+if __name__ == '__main__':
+    print(torch.tensor([0.0]).type())

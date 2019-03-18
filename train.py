@@ -1,3 +1,8 @@
+from config import *
+from model import P_Net, R_Net, O_Net, LossFn
+from dataset import mtcnn_dataset
+import random
+import time
 import torch
 import torch.nn as nn
 import torch.optim as opt
@@ -7,18 +12,6 @@ import time
 import argparse
 import os
 import os.path as osp
-from model import P_Net, R_Net, O_Net, LossFn
-from dataset import mtcnn_dataset
-from config import DEBUG
-import random
-import time
-
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if torch.cuda.is_available():
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
-else:
-    torch.set_default_tensor_type('torch.FloatTensor')
 
 
 def config():
@@ -27,7 +20,7 @@ def config():
                         default='/Users/chenlinwei/Dataset/P_Net_dataset/P_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
     parser.add_argument('--r_net_data', type=str,
-                        default='/Users/chenlinwei/Dataset/P_Net_dataset/R_Net_dataset.txt',
+                        default='/Users/chenlinwei/Dataset/R_Net_dataset/R_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
     parser.add_argument('--o_net_data', type=str,
                         default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txtt',
@@ -54,16 +47,16 @@ def config():
                         default=1000,
                         help='some batches make up a sub_epoch ')
     parser.add_argument('--batch_size', type=int,
-                        default=16,
+                        default=32,
                         help='some batches make up a sub_epoch ')
     parser.add_argument('--num_workers', type=int,
-                        default=4,
+                        default=0,
                         help='workers for loading the data')
     parser.add_argument('--half_lr_steps', type=int,
                         default=10000,
                         help='half the lr every half_lr_steps iter')
     parser.add_argument('--save_steps', type=int,
-                        default=1000,
+                        default=100,
                         help='save para, model every save_steps iter')
 
     args = parser.parse_args()
@@ -79,7 +72,9 @@ def load_net(args, net_name):
         net = net_list[net_name].to(DEVICE)
         try:
             print('===> loading the saved net weights...')
-            net.load_state_dict(torch.load(osp.join(args.saved_folder, net_name + '.pkl'), map_location=DEVICE))
+            _ = osp.join(args.save_folder, net_name + '.pkl')
+            print('===> check {} saved path:{}'.format(net_name, osp.exists(_)))
+            net.load_state_dict(torch.load(_, map_location=DEVICE))
             return net  # , rnet, onet
         except Exception:
             print('*** fail to load the saved net weights!')
@@ -88,7 +83,7 @@ def load_net(args, net_name):
         print('*** Net name wrong!')
 
 
-def load_para(file_name='pnet_para.pkl'):
+def load_para(file_name):
     para = None
     try:
         print('===> loading the saved parameters...')
@@ -146,18 +141,19 @@ def save_safely(file, dir_path, file_name):
 
 def train_net(args, net_name='pnet'):
     net = load_net(args, net_name)
-    optimizer = opt.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, amsgrad=True)
-    loss = LossFn(cls_factor=1, box_factor=0.5, landmark_factor=0.5)
-    para = load_para()
+    para = load_para(net_name + '_para.pkl')
     lr = para['lr']
     iter_count = para['iter']
+    optimizer = opt.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, amsgrad=True)
+    loss = LossFn(cls_factor=1.0, box_factor=0.5, landmark_factor=0.5)
     if para['optimizer_param'] is not None:
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
     data_set = get_dataset(args, net_name)
     t0 = time.perf_counter()
-    for _, (img_tensor, label, offset, landmark) in enumerate(data_set, iter_count):
+    for _, ((img_tensor, label, offset, landmark), tp) in enumerate(data_set, iter_count):
         iter_count += 1
+        # print('tp:{}'.format(tp))
         # update lr rate
         if 0 == iter_count % args.half_lr_steps:
             lr /= 2
@@ -171,6 +167,7 @@ def train_net(args, net_name='pnet'):
         all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box)
         t1 = time.perf_counter()
         print('===> iter:{}\t| loss:{:.8f}\t| time:{:.8f}'.format(iter_count, all_loss.item(), t1 - t0))
+        # print(all_loss)
         t0 = time.perf_counter()
         all_loss.backward()
         optimizer.step()
@@ -209,4 +206,6 @@ def load_txt(data_path):
 
 if __name__ == '__main__':
     args = config()
-    train_net(args, 'pnet')
+    # while 1:
+    # train_net(args, 'pnet')
+    train_net(args, 'rnet')
