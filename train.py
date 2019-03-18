@@ -38,7 +38,7 @@ def config():
                         default=osp.join(osp.expanduser('~'), 'Dataset/CNN_FacePoint/train/testImageList.txt'),
                         help='The path of .txt file including the testing data path')
     parser.add_argument('--save_folder', type=str,
-                        default='/Users/chenlinwei/Dataset/MTCNN_weighs',
+                        default='./MTCNN_weighs',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
     parser.add_argument('--lr', type=float,
                         default=0.001,
