@@ -7,25 +7,28 @@ import PIL
 from PIL import Image
 from config import DEBUG
 from tqdm import tqdm
-from util import IoU
+from util import IoU, convert_to_square
 
 
 def config():
     parser = argparse.ArgumentParser(description='config the source data path')
-    parser.add_argument('--WILDER_FACE_txt_path',
+    parser.add_argument('--class_data_txt_path',
                         default='/Users/chenlinwei/Dataset/WILDER_FACE/wider_face_split/wider_face_train_short.txt',
                         type=str, help='the path of WILDER FACE .txt file')
-    parser.add_argument('--WILDER_FACE_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
+    parser.add_argument('--class_data_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
                         type=str, help='the dir of WILDER FACE image file')
-    parser.add_argument('--CelebA_txt_path', default='none', type=str, help='the path of CelebA .txt file')
-    parser.add_argument('--CelebA_dir', default='none', type=str, help='the dir of CelebA image file')
+    parser.add_argument('--landmark_data_txt_path',
+                        default='/Users/chenlinwei/Dataset/CNN_FacePoint/train/trainImageList.txt',
+                        type=str, help='the path of CelebA .txt file')
+    parser.add_argument('--landmark_data_dir', default='/Users/chenlinwei/Dataset/CNN_FacePoint/train', type=str,
+                        help='the dir of CelebA image file')
     parser.add_argument('--output_path', default='/Users/chenlinwei/Dataset', type=str,
                         help='the path to save the created dataset at')
     args = parser.parse_args()
     return args
 
 
-def WILDER_FACE_txt_parser(txt_path, img_dir):
+def class_dataset_txt_parser(txt_path, img_dir):
     """
     :param txt_path: the path of wider_face_train_bbx_gt.txt
     :param img_dir: tha dir of WILDER_FACE/WIDER_train
@@ -73,21 +76,6 @@ def WILDER_FACE_txt_parser(txt_path, img_dir):
         return img_faces
     else:
         print('*** warning:WILDER_FACE txt file not exist!')
-
-
-def CelebA_txt_parser(txt_path, img_dir):
-    if osp.exists(txt_path):
-        # *** img_faces shape :[img_path,[faces_num, 4]]
-        img_faces = []
-        with open(txt_path, 'r') as f:
-            l = []
-            lines = list(map(lambda line: line.strip().split('\n'), f))
-            # lines[[str],[str],[]...]
-            lines = [i[0] for i in lines]
-            # lines [str,str...]
-            line_counter = 0
-    else:
-        print('*** warning:CelebA txt file not exist!')
 
 
 # create positive, negative, part face sample for ratio of 3:1:1 where 1 means
@@ -205,17 +193,92 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
     f.close()
 
 
-def landmark_dataset(img_faces, output_path, save_dir_name, crop_size):
-    pass
+def landmark_dataset_txt_parser(txt_path, img_dir):
+    if osp.exists(txt_path):
+        # *** img_faces shape :[img_path,[faces_num, 4]]
+        img_faces = []
+        with open(txt_path, 'r') as f:
+            l = []
+            lines = list(map(lambda line: line.strip().split('\n'), f))
+            # lines[[str],[str],[]...]
+            lines = [i[0].split(' ') for i in lines]
+            # lines [[path_str,pos_str]...]
+            for line in lines:
+                # 将路径中的'\'替换为'/'
+                img_path = line[0].replace('\\', '/')
+                faces_pos = [int(i) for i in line[1:5]]
+                # 标注为 左右眼，嘴，左右嘴角
+                landmark = [float(i) for i in line[5:]]
+                real_img_path = osp.join(img_dir, img_path)
+                # if DEBUG: print(real_img_path)
+                # if DEBUG: print(osp.exists(real_img_path), Image.open(real_img_path).verify())
+                if osp.exists(real_img_path):
+                    try:
+                        Image.open(real_img_path).verify()
+                        img_faces.append([real_img_path, faces_pos, landmark])
+                        if DEBUG: print('Valid image')
+                    except Exception:
+                        if DEBUG: print('Invalid image')
+                else:
+                    print("*** warning:image path invalid")
+
+        for i in img_faces: print(i)
+        return img_faces
+    else:
+        print('*** warning:WILDER_FACE txt file not exist!')
+
+
+def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
+    """
+    :param landmark_faces: [absolute_img_path,[x1,y1,w,h],[left_eye,right_eye,nose,mouse_left, mouse_right]]
+    :param output_path:path to save data
+    :param save_dir_name:
+    :param crop_size:
+    :return:
+    """
+    '''
+    for img_face in img_faces:
+        absolute_img_path = img_face[0]
+        [x1, y1, w, h] = img_face[1]
+        [left_eye_x, left_eye_y, right_eye_x, right_eye_y, nose_x, nose_y,
+         mouse_left_x, mouse_left_y, mouse_right_x, mouse_right_y] = img_face[2]
+        print()
+    '''
+    # boxes: x1,y1,w,h
+    # print('img_faces:', landmark_faces)
+    # print('img_faces[:][1]:', landmark_faces[:][1])
+    boxes = np.array([landmark_faces[i][1] for i in range(len(landmark_faces))])
+    # boxes_two_point: x1,y1,x2,y2
+    boxes_two_point = np.array([boxes[:, 0], boxes[:, 1], boxes[:, 0] + boxes[:, 2], boxes[:, 1] + boxes[:, 3]]).T
+    square_boxes = convert_to_square(boxes_two_point)
+    print('square_boxes', square_boxes)
+    landmark = np.array([landmark_faces[i][2] for i in range(len(landmark_faces))])
+    offset = np.array([
+        (boxes_two_point[:, 0] - square_boxes[:, 0]) / boxes[:, 2],
+        (boxes_two_point[:, 1] - square_boxes[:, 1]) / boxes[:, 2],
+        (boxes_two_point[:, 2] - square_boxes[:, 2]) / boxes[:, 3],
+        (boxes_two_point[:, 3] - square_boxes[:, 3]) / boxes[:, 3],
+    ])
+    print('offset', offset)
+    square_boxes_length = square_boxes[:, 2] - square_boxes[:, 0] + 1
+    landmark = np.array([
+        (landmark[:, i]) / square_boxes_length for i in range(len(landmark))
+    ])
+    print('landmark', landmark)
 
 
 if __name__ == '__main__':
     print("Creating datasets...")
     args = config()
     print(args)
-    img_faces = WILDER_FACE_txt_parser(args.WILDER_FACE_txt_path, args.WILDER_FACE_dir)
-    data_set_config = {'P_Net_dataset': 12,
-                       'R_Net_dataset': 24,
-                       'O_Net_dataset': 48}
-    for dir in data_set_config:
-        class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=data_set_config[dir])
+    img_faces = class_dataset_txt_parser(args.class_data_txt_path, args.class_data_dir)
+    class_data_set_config = {'P_Net_dataset': 12,
+                             'R_Net_dataset': 24,
+                             'O_Net_dataset': 48}
+    # for dir in class_data_set_config:
+    #     class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=data_set_config[dir])
+    landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
+    landmark_data_set_config = {'O_Net_dataset': 48}
+    for dir in landmark_data_set_config:
+        landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
+                         crop_size=landmark_data_set_config[dir])
