@@ -23,7 +23,7 @@ def config():
                         default='/Users/chenlinwei/Dataset/R_Net_dataset/R_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
     parser.add_argument('--o_net_data', type=str,
-                        default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txtt',
+                        default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
     parser.add_argument('--class_training_data_path', type=str,
                         default='/Users/chenlinwei/Code/20190315MTCNN-Pytorch/P_Net_dataset.txt',
@@ -160,6 +160,7 @@ def train_net(args, net_name='pnet'):
             para.update({'lr': lr})
             for param_groups in optimizer.param_groups:
                 param_groups['lr'] = lr
+            print('*** lr updated:{}'.format(lr))
         wrap = (img_tensor, label, offset, landmark)
         (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
         det, box, landmark = net(img_tensor)
@@ -206,6 +207,7 @@ def load_txt(data_path):
 
 if __name__ == '__main__':
     args = config()
-    # while 1:
-    # train_net(args, 'pnet')
-    train_net(args, 'rnet')
+    while 1:
+        train_net(args, 'onet')
+    # while True:
+    #     train_net(args, 'rnet')

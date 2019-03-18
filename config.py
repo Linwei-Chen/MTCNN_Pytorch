@@ -17,6 +17,7 @@ else:
     # torch.set_default_tensor_type('torch.DoubleTensor')
 
 
+
 def args_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('--class_training_data_path', type=str,

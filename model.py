@@ -112,8 +112,16 @@ class O_Net(nn.Module):
         # weight initiation weih xavier
         self.apply(weights_init)
 
-    def forward(self, *input):
-        pass
+    def forward(self, x):
+        x = self.pre_layer(x)
+        x = x.view(x.size(0), -1)
+        x = self.conv5(x)
+        x = self.prelu5(x)
+        # detection
+        det = torch.sigmoid(self.conv6_1(x))
+        box = self.conv6_2(x)
+        landmark = self.conv6_3(x)
+        return det, box, landmark
 
 
 class LossFn:
