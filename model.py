@@ -198,16 +198,13 @@ class LossFn:
             return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
         # return torch.tensor([0.])
 
-    def landmark_loss(self, gt_label, gt_landmark=None, pred_landmark=None):
-        if gt_landmark is None:
-            # print('no landmark loss')
-            return torch.tensor([0.0])
+    def landmark_loss(self, landmark_flag, gt_landmark=None, pred_landmark=None):
         # pred_landmark:[batch_size,10,1,1] to [batch_size,10]
         pred_landmark = torch.squeeze(pred_landmark)
         # gt_landmark:[batch_size,10] to [batch_size,10]
         gt_landmark = torch.squeeze(gt_landmark)
         # gt_label:[batch_size,1] to [batch_size]
-        gt_label = torch.squeeze(gt_label)
+        gt_label = torch.squeeze(landmark_flag)
         mask = torch.eq(gt_label, 1)
         # chose_index = torch.nonzero(mask.data)
         # chose_index = torch.squeeze(chose_index)
@@ -216,12 +213,16 @@ class LossFn:
         valid_gt_landmark = gt_landmark[mask, :]
         valid_pred_landmark = pred_landmark[mask, :]
         # print('valid_pred_landmark', valid_pred_landmark, 'valid_gt_landmark', valid_gt_landmark)
-        return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
+        valid_sample_num = valid_gt_landmark.shape[0]
+        if 0 == valid_sample_num:
+            return torch.tensor([0.0])
+        else:
+            return self.loss_landmark(valid_pred_landmark, valid_gt_landmark) * self.land_factor
 
-    def total_loss(self, gt_label, pred_label, gt_offset, pred_offset, gt_landmark=None, pred_landmark=None):
+    def total_loss(self, gt_label, pred_label, gt_offset, pred_offset, landmark_flag, gt_landmark, pred_landmark):
         return self.cls_loss(gt_label, pred_label) \
                + self.box_loss(gt_label, gt_offset, pred_offset) \
-               + self.landmark_loss(gt_label, gt_landmark, pred_landmark)
+               + self.landmark_loss(landmark_flag, gt_landmark, pred_landmark)
 
 
 if __name__ == '__main__':

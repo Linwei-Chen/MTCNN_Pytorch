@@ -151,7 +151,7 @@ def train_net(args, net_name='pnet'):
         print('===> updated the param of optimizer.')
     data_set = get_dataset(args, net_name)
     t0 = time.perf_counter()
-    for _, ((img_tensor, label, offset, landmark), tp) in enumerate(data_set, iter_count):
+    for _, (img_tensor, label, offset, landmark_flag, landmark) in enumerate(data_set, iter_count):
         iter_count += 1
         # print('tp:{}'.format(tp))
         # update lr rate
@@ -163,9 +163,11 @@ def train_net(args, net_name='pnet'):
             print('*** lr updated:{}'.format(lr))
         wrap = (img_tensor, label, offset, landmark)
         (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
-        det, box, landmark = net(img_tensor)
+        det, box, ldmk = net(img_tensor)
         optimizer.zero_grad()
-        all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box)
+        # print('offset:', offset)
+        all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box,
+                                   landmark_flag=landmark_flag, pred_landmark=ldmk, gt_landmark=landmark)
         t1 = time.perf_counter()
         print('===> iter:{}\t| loss:{:.8f}\t| time:{:.8f}'.format(iter_count, all_loss.item(), t1 - t0))
         # print(all_loss)

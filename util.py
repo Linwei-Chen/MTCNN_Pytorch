@@ -35,7 +35,7 @@ def nms(boxes, overlap_threshold=0.5, mode='union'):
 
         inds = np.where(ovr <= overlap_threshold)[0]
         order = order[inds + 1]
-    print(keep)
+    # print(keep)
     return keep
 
 
@@ -77,6 +77,7 @@ def calibrate_box(bboxes, offsets):
 def get_image_boxes(bounding_boxes, img, size=24):
     """ Cut out boxes from the image. """
     num_boxes = len(bounding_boxes)
+    # print('bounding_boxes:', bounding_boxes)
     width, height = img.size
 
     [dy, edy, dx, edx, y, ey, x, ex, w, h] = correct_bboxes(bounding_boxes, width, height)
@@ -86,6 +87,7 @@ def get_image_boxes(bounding_boxes, img, size=24):
         img_box = np.zeros((h[i], w[i], 3), 'uint8')
 
         img_array = np.asarray(img, 'uint8')
+        # print('img_array.shape:', img_array.shape)
         img_box[dy[i]:(edy[i] + 1), dx[i]:(edx[i] + 1), :] = \
             img_array[y[i]:(ey[i] + 1), x[i]:(ex[i] + 1), :]
 

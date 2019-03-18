@@ -205,7 +205,7 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
     f.close()
 
 
-def O_Net_landmark_dataset(landmark_faces, output_path, ):
+def landmark_dataset(img_faces, output_path, save_dir_name, crop_size):
     pass
 
 
