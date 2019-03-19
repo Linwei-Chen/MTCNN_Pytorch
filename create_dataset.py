@@ -135,7 +135,7 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
                                                                  [1, 0.3, 0.1, 0.02])):
                 ct = 0
                 for i in range(100):
-                    if ct >= sample_num:break
+                    if ct >= sample_num: break
                     max_size = min(width, height)
                     size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
                     # 保证大于剪切的尺寸要大于一个值
@@ -294,13 +294,13 @@ if __name__ == '__main__':
     args = config()
     print(args)
     img_faces = class_dataset_txt_parser(args.class_data_txt_path, args.class_data_dir)
-    class_data_set_config = {#'P_Net_dataset': 12,
-                             #'R_Net_dataset': 24,
+    class_data_set_config = {'P_Net_dataset': 12,
+                             'R_Net_dataset': 24,
                              'O_Net_dataset': 48}
     for dir in class_data_set_config:
         class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
     landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     landmark_data_set_config = {'O_Net_dataset': 48}
-    # for dir in landmark_data_set_config:
-    #     landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
-    #                      crop_size=landmark_data_set_config[dir])
+    for dir in landmark_data_set_config:
+        landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
+                         crop_size=landmark_data_set_config[dir])
