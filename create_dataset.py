@@ -10,6 +10,7 @@ from tqdm import tqdm
 from util import IoU, convert_to_square
 
 
+# set up the path and some config
 def config():
     parser = argparse.ArgumentParser(description='config the source data path')
     parser.add_argument('--class_data_txt_path',
@@ -17,6 +18,8 @@ def config():
                         type=str, help='the path of WILDER FACE .txt file')
     parser.add_argument('--class_data_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
                         type=str, help='the dir of WILDER FACE image file')
+    parser.add_argument('--class_data_augment', default=5,
+                        type=int, help='the dir of WILDER FACE image file')
     parser.add_argument('--landmark_data_txt_path',
                         default='/Users/chenlinwei/Dataset/CNN_FacePoint/train/trainImageList.txt',
                         type=str, help='the path of CelebA .txt file')
@@ -78,11 +81,17 @@ def class_dataset_txt_parser(txt_path, img_dir):
         print('*** warning:WILDER_FACE txt file not exist!')
 
 
-# create positive, negative, part face sample for ratio of 3:1:1 where 1 means
-Augment = 5
-
-
-def class_dataset(img_faces, output_path, save_dir_name, crop_size):
+# TODO：检查offset值可能有误
+# create positive, negative, part face sample for ratio of 3:1:1 where 1 means augment
+def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
+    """
+    :param img_faces: [img_path,[faces_num, 4==>(x1,y1,w,h)]]
+    :param output_path:
+    :param save_dir_name:
+    :param crop_size:
+    :return: class data set will be saved at output_path/save_dir_name,
+            with .txt file at output_path/save_dir_name/save_dir_name.txt
+    """
     save_dir = osp.join(output_path, save_dir_name)
     if not osp.exists(save_dir):
         os.makedirs(save_dir)
@@ -112,84 +121,59 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size):
         faces_num = len(faces)
         if DEBUG: print('faces_num:', faces_num)
         # *** create positive samples
-        sigma_list = [0.02, 0.1, 0.2]
+        # face: [face_num, 4]
         for face in faces:
             x1, y1, w, h = face
             face_max_size = max(w, h)
-            # counter for positive, negative, part face sample
-            p_ct, n_ct, pf_ct = 0, 0, 0
-            for i in range(Augment * 10):
-                if pf_ct >= Augment * 1 and p_ct >= Augment * 1 and n_ct >= Augment * 1: break
-                sigma = sigma_list[(p_ct >= Augment * 1) + (pf_ct >= Augment * 1 and p_ct >= Augment * 1)]
-                max_size = min(width, height)
-                size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
-                # 保证大于剪切的尺寸要大于一个值
-                size = min(max(12, size), max_size)
-                if DEBUG: print('size:', size)
-                crop_x1, crop_y1 = (uniform(-1.0, 1.0) * sigma + 1) * x1, (uniform(-1.0, 1.0) * sigma + 1) * y1
-                crop_x1, crop_y1 = min(max(0, crop_x1), width - size), min(max(0, crop_y1), height - size)
-                crop_box = np.array([crop_x1, crop_y1, crop_x1 + size, crop_y1 + size])
-                if DEBUG: print('crop_box:', crop_box, 'faces_two_points:', faces_two_points)
-                iou = IoU(crop_box, faces_two_points)
-                iou_max_idx = iou.argmax()
-                iou = iou.max()
-                if DEBUG: print('iou', iou)
-                crop_box = [int(i) for i in crop_box]
-                crop_img_np = img_np[crop_box[1]:crop_box[3], crop_box[0]:crop_box[2]]
-                crop_img = Image.fromarray(crop_img_np)
-                crop_img = crop_img.resize((crop_size, crop_size), resample=PIL.Image.BILINEAR)
-                real_face_pos = np.array([
-                    (faces_two_points[iou_max_idx][0] - crop_box[0]) / w,
-                    (faces_two_points[iou_max_idx][1] - crop_box[1]) / h,
-                    (faces_two_points[iou_max_idx][2] - crop_box[2]) / w,
-                    (faces_two_points[iou_max_idx][3] - crop_box[3]) / h,
-                ])
-                real_face_pos = [i for i in real_face_pos]
-                if DEBUG: print('real_face_pos:', real_face_pos)
-                img_id += 1
-                if p_ct < Augment * 1 and iou >= 0.65:
-                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
-                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
-                    crop_img.save(_, format='jpeg')
-                    _ = osp.join(img_file_name, crop_img_file_name)
-                    f.write(_ + ' p ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
-                    p_ct += 1
-                elif pf_ct < Augment * 1 and (0.4 < iou < 0.65):
-                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
-                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
-                    crop_img.save(_, format='jpeg')
-                    _ = osp.join(img_file_name, crop_img_file_name)
-                    f.write(_ + ' pf ' + '{} {} {} {}'.format(*real_face_pos) + '\n')
-                    pf_ct += 1
-                elif n_ct < Augment * 1 and iou < 0.3:
-                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
-                    _ = osp.join(crop_img_save_dir, crop_img_file_name)
-                    crop_img.save(_, format='jpeg')
-                    _ = osp.join(img_file_name, crop_img_file_name)
-                    f.write(_ + ' n' + '\n')
-                    n_ct += 1
-                else:
-                    img_id -= 1
-            n_ct = 0
-            for i in range(Augment * 5):
-                if n_ct >= Augment * 2: break
-                size = np.random.randint(12, min(width, height))
-                x1 = np.random.randint(0, width - size)
-                y1 = np.random.randint(0, height - size)
-                crop_box = np.array([x1, y1, x1 + size, y1 + size])
-                iou = IoU(crop_box, faces_two_points).max()
-                if iou < 0.3:
+            face_min_size = min(w, h)
+            # skip the small faces
+            if face_min_size < crop_size:
+                continue
+            # ['n','n', 'pf', 'p'] config
+            for cl, (iou_th, sample_num, sigma) in enumerate(zip([(0, 0.3),(0, 0.3), (0.4, 0.65), (0.65, 1.0)],
+                                                                 [Augment * 2, Augment * 1, Augment * 1, Augment * 1],
+                                                                 [1, 0.3, 0.1, 0.02])):
+                ct = 0
+                while ct < sample_num:
+                    max_size = min(width, height)
+                    size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
+                    # 保证大于剪切的尺寸要大于一个值
+                    size = min(max(crop_size, size), max_size)
+                    print('size:', size)
+                    crop_x1, crop_y1 = (uniform(-1.0, 1.0) * sigma + 1) * x1, (uniform(-1.0, 1.0) * sigma + 1) * y1
+                    crop_x1, crop_y1 = min(max(0, crop_x1), width - size), min(max(0, crop_y1), height - size)
+                    crop_box = np.array([crop_x1, crop_y1, crop_x1 + size, crop_y1 + size])
+                    print('crop_box:', crop_box)
+                    print('faces_two_points:', faces_two_points)
+                    iou = IoU(crop_box, faces_two_points)
+                    iou_max_idx = iou.argmax()
+                    iou = iou.max()
+                    print('iou', iou)
+                    # iou值不符则跳过
+                    if iou < iou_th[0] or iou > iou_th[1]:
+                        continue
+                    else:
+                        ct += 1
+                    # [y1:y2,x1:x2,:]
                     crop_box = [int(i) for i in crop_box]
-                    crop_img_np = img_np[crop_box[1]:crop_box[3], crop_box[0]:crop_box[2]]
+                    crop_img_np = img_np[crop_box[1]:crop_box[3], crop_box[0]:crop_box[2], :]
                     crop_img = Image.fromarray(crop_img_np)
                     crop_img = crop_img.resize((crop_size, crop_size), resample=PIL.Image.BILINEAR)
-                    crop_img_file_name = '{}_{:.6}.jpg'.format(img_id, iou)
+                    # TODO:w,h 和x1,y1,x2,y2的关系？
+                    offset = np.array([
+                        (faces_two_points[iou_max_idx][0] - crop_box[0]) / float(w),
+                        (faces_two_points[iou_max_idx][1] - crop_box[1]) / float(h),
+                        (faces_two_points[iou_max_idx][2] - crop_box[2]) / float(w),
+                        (faces_two_points[iou_max_idx][3] - crop_box[3]) / float(h),
+                    ])
+                    # real_face_pos = [i for i in real_face_pos]
+                    print('offset:', offset)
+                    crop_img_file_name = '{}_{:.6}.jpg'.format(ct, iou)
                     _ = osp.join(crop_img_save_dir, crop_img_file_name)
                     crop_img.save(_, format='jpeg')
-                    _ = osp.join(img_file_name, crop_img_file_name)
-                    f.write(_ + ' n' + '\n')
-                    n_ct += 1
-                    img_id += 1
+                    __ = osp.join(img_file_name, crop_img_file_name)
+                    f.write(__ + ' {} '.format(['n','n', 'pf', 'p'][cl])
+                            + ['', '{} {} {} {}'.format(*offset)][cl > 1] + '\n')
     f.close()
 
 
@@ -222,7 +206,7 @@ def landmark_dataset_txt_parser(txt_path, img_dir):
                 else:
                     print("*** warning:image path invalid")
 
-        for i in img_faces: print(i)
+        # for i in img_faces: print(i)
         return img_faces
     else:
         print('*** warning:WILDER_FACE txt file not exist!')
@@ -230,11 +214,12 @@ def landmark_dataset_txt_parser(txt_path, img_dir):
 
 def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
     """
-    :param landmark_faces: [absolute_img_path,[x1,y1,w,h],[left_eye,right_eye,nose,mouse_left, mouse_right]]
-    :param output_path:path to save data
+    :param landmark_faces: list_shape[absolute_img_path,[x1,y1,w,h],[left_eye,right_eye,nose,mouse_left, mouse_right]]
+    :param output_path: path to save dataset dir
     :param save_dir_name:
-    :param crop_size:
-    :return:
+    :param crop_size: resize the face to crop size
+    :return: save the landmark_dataset at output_path/save_dir_name/landmark,
+            .txt at output_path/save_dir_name/save_dir_name/txt
     """
     '''
     for img_face in img_faces:
@@ -248,23 +233,59 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
     # print('img_faces:', landmark_faces)
     # print('img_faces[:][1]:', landmark_faces[:][1])
     boxes = np.array([landmark_faces[i][1] for i in range(len(landmark_faces))])
-    # boxes_two_point: x1,y1,x2,y2
-    boxes_two_point = np.array([boxes[:, 0], boxes[:, 1], boxes[:, 0] + boxes[:, 2], boxes[:, 1] + boxes[:, 3]]).T
+    # boxes_two_point: x1,y1,x2,y2 [sample_num, 4]
+    # TODO：图像坐标注意！
+    # CNN_face_point [x1,x2,y1,y2], 左上角为(0, 0)
+    boxes_two_point = np.array([boxes[:, 0], boxes[:, 2], boxes[:, 1], boxes[:, 3]]).T
+    print('boxes_two_point shape:', boxes_two_point.shape)
+    print('boxes_two_point :', boxes_two_point)
     square_boxes = convert_to_square(boxes_two_point)
-    print('square_boxes', square_boxes)
+    print('square_boxes shape', square_boxes.shape)
+    # landmark :[sample_num, 10]
     landmark = np.array([landmark_faces[i][2] for i in range(len(landmark_faces))])
-    offset = np.array([
-        (boxes_two_point[:, 0] - square_boxes[:, 0]) / boxes[:, 2],
-        (boxes_two_point[:, 1] - square_boxes[:, 1]) / boxes[:, 2],
-        (boxes_two_point[:, 2] - square_boxes[:, 2]) / boxes[:, 3],
-        (boxes_two_point[:, 3] - square_boxes[:, 3]) / boxes[:, 3],
-    ])
-    print('offset', offset)
+    print('landmark shape:', landmark.shape)
+    # square_boxes_length : [sample_num, 1]
     square_boxes_length = square_boxes[:, 2] - square_boxes[:, 0] + 1
+    print('square_boxes_length shape:', square_boxes_length.shape)
+    # offset : [sample_num, 4]
+    offset = np.array([
+        (boxes_two_point[:, 0] - square_boxes[:, 0]) / square_boxes_length,
+        (boxes_two_point[:, 1] - square_boxes[:, 1]) / square_boxes_length,
+        (boxes_two_point[:, 2] - square_boxes[:, 2]) / square_boxes_length,
+        (boxes_two_point[:, 3] - square_boxes[:, 3]) / square_boxes_length,
+    ]).T
+    print('offset shape', offset.shape)
+    print('landmark:', landmark)
+    print('square_boxes:', square_boxes)
+    print('square_boxes_length:', square_boxes_length)
     landmark = np.array([
-        (landmark[:, i]) / square_boxes_length for i in range(len(landmark))
-    ])
+        (landmark[:, i] - square_boxes[:, i % 2]) / square_boxes_length for i in range(landmark.shape[1])
+    ]).T
     print('landmark', landmark)
+    print('landmark.shape', landmark.shape)
+    landmark_faces_path = [landmark_faces[i][0] for i in range(len(landmark_faces))]
+    dataset_txt_save_path = osp.join(output_path, save_dir_name, save_dir_name + '.txt')
+    dataset_save_path = osp.join(output_path, save_dir_name, 'landmark/')
+    f = open(dataset_txt_save_path, 'a')
+    if not osp.exists(dataset_save_path):
+        os.mkdir(dataset_save_path)
+    for img_path, sqbx, ofst, ldmk in zip(landmark_faces_path, square_boxes, offset, landmark):
+        file_name = osp.split(img_path)[1]
+        img = Image.open(img_path)
+        img = img.convert('RGB')
+        # h x w x c
+        img_np_crop = np.array(img)[sqbx[1]:sqbx[3], sqbx[0]:sqbx[2], :]
+        # test:
+        # Image.fromarray(img_np_crop).show()
+        img_resized = Image.fromarray(img_np_crop).resize((crop_size, crop_size))
+        img_resized.save(osp.join(dataset_save_path, file_name + '.jpg'))
+        # TODO:TypeError: unsupported operand type(s) for +: 'int' and 'str'
+        ofst_str = ''
+        for s in [str(i) + ' ' for i in ofst]: ofst_str += s
+        ldmk_str = ''
+        for s in [str(i) + ' ' for i in ldmk]: ldmk_str += s
+        f.write(save_dir_name + '/landmark/' + file_name + ' l {} {}'.format(ofst_str, ldmk_str) + '\n')
+    f.close()
 
 
 if __name__ == '__main__':
@@ -272,11 +293,11 @@ if __name__ == '__main__':
     args = config()
     print(args)
     img_faces = class_dataset_txt_parser(args.class_data_txt_path, args.class_data_dir)
-    class_data_set_config = {'P_Net_dataset': 12,
-                             'R_Net_dataset': 24,
+    class_data_set_config = {#'P_Net_dataset': 12,
+                             #'R_Net_dataset': 24,
                              'O_Net_dataset': 48}
-    # for dir in class_data_set_config:
-    #     class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=data_set_config[dir])
+    for dir in class_data_set_config:
+        class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
     landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     landmark_data_set_config = {'O_Net_dataset': 48}
     for dir in landmark_data_set_config:

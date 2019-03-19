@@ -20,8 +20,8 @@ def load_img(img_path):
     return img
 
 
-def detect_faces(args, img, min_face_size=20.0, thresholds=[0.3, 0.4, 0.5],
-                 nms_thresholds=[0.8, 0.8, 0.8]):
+def detect_faces(args, img, min_face_size=20.0, thresholds=[0.6, 0.7, 0.8],
+                 nms_thresholds=[0.7, 0.7, 0.7]):
     pnet, rnet, onet = load_net(args, 'pnet'), load_net(args, 'rnet'), load_net(args, 'onet')
     onet.eval()
     width, height = img.size
