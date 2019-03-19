@@ -301,6 +301,6 @@ if __name__ == '__main__':
         class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
     landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     landmark_data_set_config = {'O_Net_dataset': 48}
-    for dir in landmark_data_set_config:
-        landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
-                         crop_size=landmark_data_set_config[dir])
+    # for dir in landmark_data_set_config:
+    #     landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
+    #                      crop_size=landmark_data_set_config[dir])

@@ -188,5 +188,3 @@ if __name__ == '__main__':
     args = config()
     image = load_img('/Users/chenlinwei/Code/20190314mtcnn-pytorch-2/images/test3.jpg')
     bounding_boxes, landmarks = detect_faces(args,image)
-    image = show_bboxes(image, bounding_boxes, landmarks)
-    image.show()

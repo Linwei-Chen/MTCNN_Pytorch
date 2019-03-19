@@ -56,7 +56,7 @@ def config():
                         default=10000,
                         help='half the lr every half_lr_steps iter')
     parser.add_argument('--save_steps', type=int,
-                        default=100,
+                        default=27,
                         help='save para, model every save_steps iter')
 
     args = parser.parse_args()
@@ -209,7 +209,7 @@ def load_txt(data_path):
 
 if __name__ == '__main__':
     args = config()
-    # while 1:
-    #     train_net(args, 'onet', loss_config=[1.0, 0.5, 1.0])
-    while True:
-        train_net(args, 'rnet')
+    while 1:
+        train_net(args, 'onet', loss_config=[1.0, 0.5, 1.0])
+    # while True:
+    #     train_net(args, 'rnet')
