@@ -2,6 +2,9 @@ from config import *
 from PIL import Image
 from train import config, load_net
 from torchvision import transforms
+from util import load_img
+
+
 
 
 def img_face_detect(args, img_path, th=[0.6, 0.7, 0.8]):

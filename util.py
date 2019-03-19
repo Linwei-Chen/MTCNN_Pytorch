@@ -3,6 +3,18 @@ from PIL import Image, ImageDraw
 import numpy as np
 
 
+def load_img(img_path):
+    img = None
+    try:
+        print('===> loading the img...')
+        img = Image.open(img_path)
+        img = img.convert('RGB')
+    except Exception:
+        print('*** warning loading fail!')
+        return
+    return img
+
+
 def nms(boxes, overlap_threshold=0.5, mode='union'):
     """ Pure Python NMS baseline. """
     x1 = boxes[:, 0]

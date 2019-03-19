@@ -114,12 +114,12 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
             os.makedirs(crop_img_save_dir)
         faces = np.array(faces)
         faces_two_points = faces.copy()
-        if DEBUG: print('faces.shape:', faces.shape)
+        # print('faces.shape:', faces.shape)
         faces_two_points[:, 2] = faces[:, 0] + faces[:, 2]
         faces_two_points[:, 3] = faces[:, 1] + faces[:, 3]
         # if DEBUG: print('faces_two_points:', faces_two_points)
         faces_num = len(faces)
-        if DEBUG: print('faces_num:', faces_num)
+        # print('faces_num:', faces_num)
         # *** create positive samples
         # face: [face_num, 4]
         for face in faces:
@@ -130,25 +130,26 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
             if face_min_size < crop_size:
                 continue
             # ['n','n', 'pf', 'p'] config
-            for cl, (iou_th, sample_num, sigma) in enumerate(zip([(0, 0.3),(0, 0.3), (0.4, 0.65), (0.65, 1.0)],
+            for cl, (iou_th, sample_num, sigma) in enumerate(zip([(0, 0.3), (0, 0.3), (0.4, 0.65), (0.65, 1.0)],
                                                                  [Augment * 2, Augment * 1, Augment * 1, Augment * 1],
                                                                  [1, 0.3, 0.1, 0.02])):
                 ct = 0
-                while ct < sample_num:
+                for i in range(100):
+                    if ct >= sample_num:break
                     max_size = min(width, height)
                     size = (uniform(-1.0, 1.0) * sigma + 1) * face_max_size
                     # 保证大于剪切的尺寸要大于一个值
                     size = min(max(crop_size, size), max_size)
-                    print('size:', size)
+                    # print('size:', size)
                     crop_x1, crop_y1 = (uniform(-1.0, 1.0) * sigma + 1) * x1, (uniform(-1.0, 1.0) * sigma + 1) * y1
                     crop_x1, crop_y1 = min(max(0, crop_x1), width - size), min(max(0, crop_y1), height - size)
                     crop_box = np.array([crop_x1, crop_y1, crop_x1 + size, crop_y1 + size])
-                    print('crop_box:', crop_box)
-                    print('faces_two_points:', faces_two_points)
+                    # print('crop_box:', crop_box)
+                    # print('faces_two_points:', faces_two_points)
                     iou = IoU(crop_box, faces_two_points)
                     iou_max_idx = iou.argmax()
                     iou = iou.max()
-                    print('iou', iou)
+                    # print('iou', iou)
                     # iou值不符则跳过
                     if iou < iou_th[0] or iou > iou_th[1]:
                         continue
@@ -167,12 +168,12 @@ def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
                         (faces_two_points[iou_max_idx][3] - crop_box[3]) / float(h),
                     ])
                     # real_face_pos = [i for i in real_face_pos]
-                    print('offset:', offset)
+                    # print('offset:', offset)
                     crop_img_file_name = '{}_{:.6}.jpg'.format(ct, iou)
                     _ = osp.join(crop_img_save_dir, crop_img_file_name)
                     crop_img.save(_, format='jpeg')
                     __ = osp.join(img_file_name, crop_img_file_name)
-                    f.write(__ + ' {} '.format(['n','n', 'pf', 'p'][cl])
+                    f.write(__ + ' {} '.format(['n', 'n', 'pf', 'p'][cl])
                             + ['', '{} {} {} {}'.format(*offset)][cl > 1] + '\n')
     f.close()
 
@@ -278,13 +279,13 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
         # test:
         # Image.fromarray(img_np_crop).show()
         img_resized = Image.fromarray(img_np_crop).resize((crop_size, crop_size))
-        img_resized.save(osp.join(dataset_save_path, file_name + '.jpg'))
+        img_resized.save(osp.join(dataset_save_path, file_name))
         # TODO:TypeError: unsupported operand type(s) for +: 'int' and 'str'
         ofst_str = ''
         for s in [str(i) + ' ' for i in ofst]: ofst_str += s
         ldmk_str = ''
         for s in [str(i) + ' ' for i in ldmk]: ldmk_str += s
-        f.write(save_dir_name + '/landmark/' + file_name + ' l {} {}'.format(ofst_str, ldmk_str) + '\n')
+        f.write('landmark/' + file_name + ' l {} {}'.format(ofst_str, ldmk_str) + '\n')
     f.close()
 
 

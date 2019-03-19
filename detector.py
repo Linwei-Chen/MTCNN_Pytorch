@@ -5,19 +5,7 @@ import math
 import numpy as np
 from PIL import Image
 import torch
-from util import nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes
-
-
-def load_img(img_path):
-    img = None
-    try:
-        print('===> loading the img...')
-        img = Image.open(img_path)
-        img = img.convert('RGB')
-    except Exception:
-        print('*** warning loading fail!')
-        return
-    return img
+from util import nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes, load_img
 
 
 def detect_faces(args, img, min_face_size=20.0, thresholds=[0.6, 0.7, 0.8],
@@ -63,6 +51,7 @@ def detect_faces(args, img, min_face_size=20.0, thresholds=[0.6, 0.7, 0.8],
     bounding_boxes = convert_to_square(bounding_boxes)
     bounding_boxes[:, 0:4] = np.round(bounding_boxes[:, 0:4])
     # print('bounding_boxes:', len(bounding_boxes), bounding_boxes)
+    show_bboxes(img, bounding_boxes, []).show()
 
     # STAGE 2
     img_boxes = get_image_boxes(bounding_boxes, img, size=24)
@@ -81,6 +70,7 @@ def detect_faces(args, img, min_face_size=20.0, thresholds=[0.6, 0.7, 0.8],
     bounding_boxes = calibrate_box(bounding_boxes, offsets[keep])
     bounding_boxes = convert_to_square(bounding_boxes)
     bounding_boxes[:, 0:4] = np.round(bounding_boxes[:, 0:4])
+    show_bboxes(img, bounding_boxes, []).show()
 
     # STAGE 3
     img_boxes = get_image_boxes(bounding_boxes, img, size=48)
@@ -106,14 +96,14 @@ def detect_faces(args, img, min_face_size=20.0, thresholds=[0.6, 0.7, 0.8],
     xmin, ymin = bounding_boxes[:, 0], bounding_boxes[:, 1]
     # landmark[,前5个为x，后5个为y]
     # 在左上角坐标的基础上，通过 w，h 确定脸各关键点的坐标。
-    landmarks[:, 0:5] = np.expand_dims(xmin, 1) + np.expand_dims(width, 1) * landmarks[:, 0:5]
-    landmarks[:, 5:10] = np.expand_dims(ymin, 1) + np.expand_dims(height, 1) * landmarks[:, 5:10]
+    landmarks[:, 0:5] = np.expand_dims(xmin, 1) + np.expand_dims(width, 1) * landmarks[:, 0::2]
+    landmarks[:, 5:10] = np.expand_dims(ymin, 1) + np.expand_dims(height, 1) * landmarks[:, 1::2]
 
     bounding_boxes = calibrate_box(bounding_boxes, offsets)
     keep = nms(bounding_boxes, nms_thresholds[2], mode='min')
     bounding_boxes = bounding_boxes[keep]
     landmarks = landmarks[keep]
-
+    show_bboxes(img, bounding_boxes, landmarks).show()
     return bounding_boxes, landmarks
 
 
@@ -196,7 +186,7 @@ def _generate_bboxes(probs, offsets, scale, threshold):
 
 if __name__ == '__main__':
     args = config()
-    image = load_img('/Users/chenlinwei/Code/20190314mtcnn-pytorch-2/images/test5.jpg')
+    image = load_img('/Users/chenlinwei/Code/20190314mtcnn-pytorch-2/images/test3.jpg')
     bounding_boxes, landmarks = detect_faces(args,image)
     image = show_bboxes(image, bounding_boxes, landmarks)
     image.show()

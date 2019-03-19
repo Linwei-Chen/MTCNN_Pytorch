@@ -139,13 +139,13 @@ def save_safely(file, dir_path, file_name):
         torch.save(file, save_path)
 
 
-def train_net(args, net_name='pnet'):
+def train_net(args, net_name='pnet', loss_config=[1.0, 0.5, 0.5]):
     net = load_net(args, net_name)
     para = load_para(net_name + '_para.pkl')
     lr = para['lr']
     iter_count = para['iter']
     optimizer = opt.Adam(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, amsgrad=True)
-    loss = LossFn(cls_factor=1.0, box_factor=0.5, landmark_factor=0.5)
+    loss = LossFn(cls_factor=loss_config[0], box_factor=loss_config[1], landmark_factor=loss_config[2])
     if para['optimizer_param'] is not None:
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
@@ -209,7 +209,7 @@ def load_txt(data_path):
 
 if __name__ == '__main__':
     args = config()
-    while 1:
-        train_net(args, 'onet')
-    # while True:
-    #     train_net(args, 'rnet')
+    # while 1:
+    #     train_net(args, 'onet', loss_config=[1.0, 0.5, 1.0])
+    while True:
+        train_net(args, 'rnet')
