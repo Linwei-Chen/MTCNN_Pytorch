@@ -40,6 +40,9 @@ def config():
     parser.add_argument('--save_folder', type=str,
                         default='./MTCNN_weighs',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
+    parser.add_argument('--train_net', type=str,
+                        default='pnet',
+                        help='choose net to train')
     parser.add_argument('--lr', type=float,
                         default=0.001,
                         help='initial learning rate')
@@ -139,7 +142,7 @@ def save_safely(file, dir_path, file_name):
         torch.save(file, save_path)
 
 
-def train_net(args, net_name='pnet', loss_config=[1.0, 0.5, 0.5]):
+def train_net(args, net_name='pnet', loss_config=[]):
     net = load_net(args, net_name)
     para = load_para(net_name + '_para.pkl')
     lr = para['lr']
@@ -207,9 +210,13 @@ def load_txt(data_path):
     return samples
 
 
+net_loss_config = {
+    'pnet': [1.0, 0.5, 0.5],
+    'rnet': [1.0, 0.5, 0.5],
+    'onet': [1.0, 0.5, 1.0]
+}
+
 if __name__ == '__main__':
     args = config()
     while 1:
-        train_net(args, 'onet', loss_config=[1.0, 0.5, 1.0])
-    # while True:
-    #     train_net(args, 'rnet')
+        train_net(args, args.train_net, loss_config=net_loss_config[args.train_net])
