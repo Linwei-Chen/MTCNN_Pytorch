@@ -58,6 +58,9 @@ def config():
     parser.add_argument('--half_lr_steps', type=int,
                         default=10000,
                         help='half the lr every half_lr_steps iter')
+    # parser.add_argument('--lr_schedule', type=dict,
+    #                     default={40000:},
+    #                     help='half the lr every half_lr_steps iter')
     parser.add_argument('--save_steps', type=int,
                         default=27,
                         help='save para, model every save_steps iter')
@@ -76,7 +79,7 @@ def load_net(args, net_name):
         try:
             print('===> loading the saved net weights...')
             _ = osp.join(args.save_folder, net_name + '.pkl')
-            print('===> check {} saved path:{}'.format(net_name, osp.exists(_)))
+            print('===> check {} saved path({}):{}'.format(net_name, _, osp.exists(_)))
             net.load_state_dict(torch.load(_, map_location=DEVICE))
             return net  # , rnet, onet
         except Exception:
@@ -87,7 +90,7 @@ def load_net(args, net_name):
 
 
 def load_para(file_name):
-    para = None
+    # para = None
     try:
         print('===> loading the saved parameters...')
         para = torch.load(osp.join(args.save_folder, file_name))
@@ -125,6 +128,10 @@ def get_dataset(args, net_name):
                       shuffle=True,
                       num_workers=args.num_workers,
                       pin_memory=False)
+
+
+def lr_schedule(args, iter, ):
+    pass
 
 
 def save_safely(file, dir_path, file_name):

@@ -4,7 +4,6 @@ import numpy as np
 
 
 def load_img(img_path):
-    img = None
     try:
         print('===> loading the img...')
         img = Image.open(img_path)

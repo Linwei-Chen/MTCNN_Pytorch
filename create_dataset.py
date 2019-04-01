@@ -7,11 +7,12 @@ import PIL
 from PIL import Image
 from config import DEBUG
 from tqdm import tqdm
-from util import IoU, convert_to_square
-
+from util import IoU, convert_to_square, nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes, load_img
+from detector import _generate_bboxes, run_first_stage, THRESHOLDS, NMS_THRESHOLDS, MIN_FACE_SIZE, pnet_boxes
+from tqdm import tqdm
 
 # set up the path and some config
-def config():
+def dataset_config():
     parser = argparse.ArgumentParser(description='config the source data path')
     parser.add_argument('--class_data_txt_path',
                         default='/Users/chenlinwei/Dataset/WILDER_FACE/wider_face_split/wider_face_train_short.txt',
@@ -35,7 +36,7 @@ def class_dataset_txt_parser(txt_path, img_dir):
     """
     :param txt_path: the path of wider_face_train_bbx_gt.txt
     :param img_dir: tha dir of WILDER_FACE/WIDER_train
-    :return: img_faces type is list, shape is [img_num,[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
+    :return: img_faces type is list, shape is [img_num*[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
     """
     if osp.exists(txt_path):
         # *** img_faces shape :[img_path,[faces_num, 4]]
@@ -79,6 +80,35 @@ def class_dataset_txt_parser(txt_path, img_dir):
         return img_faces
     else:
         print('*** warning:WILDER_FACE txt file not exist!')
+
+
+def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=NMS_THRESHOLDS):
+    def img2tensor(img):
+        from torchvision import transforms
+        pass
+
+    from train import load_net, config
+    from config import DEVICE
+    args = config()
+    pnet = load_net(args, net_name='pnet').to(DEVICE)
+    dataset_args = dataset_config()
+    # [img_num*[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
+    cls_img_faces = class_dataset_txt_parser(txt_path=dataset_args.class_data_txt_path,
+                                             img_dir=dataset_args.class_data_dir)
+    # [absolute_img_path,[x1,y1,w,h],(x,y)of[left_eye,right_eye,nose,mouse_left, mouse_right]]
+    ldmk_img_faces = landmark_dataset_txt_parser(txt_path=dataset_args.landmark_data_txt_path,
+                                                 img_dir=dataset_args.landmark_data_dir)
+    # img_faces = ldmk_img_faces + cls_img_faces
+    img_faces = cls_img_faces + ldmk_img_faces
+    for img_face in tqdm(img_faces):
+        print('img_face:{}'.format(img_face))
+        img_path = img_face[0]
+        faces = img_face[1]
+        ldmk = None if len(img_face) < 3 else img_faces[2]
+        img = load_img(img_path)
+        bounding_boxes = pnet_boxes(img, pnet)
+        print('bounding_boxes:{}'.format(bounding_boxes))
+    pass
 
 
 # TODO：检查offset值可能有误
@@ -215,7 +245,7 @@ def landmark_dataset_txt_parser(txt_path, img_dir):
 
 def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
     """
-    :param landmark_faces: list_shape[absolute_img_path,[x1,y1,w,h],[left_eye,right_eye,nose,mouse_left, mouse_right]]
+    :param landmark_faces: list_shape[absolute_img_path,[x1,y1,w,h],(x,y)of[left_eye,right_eye,nose,mouse_left, mouse_right]]
     :param output_path: path to save dataset dir
     :param save_dir_name:
     :param crop_size: resize the face to crop size
@@ -291,16 +321,20 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
 
 if __name__ == '__main__':
     print("Creating datasets...")
-    args = config()
+    '''
+    args = dataset_config()
     print(args)
     img_faces = class_dataset_txt_parser(args.class_data_txt_path, args.class_data_dir)
     class_data_set_config = {'P_Net_dataset': 12,
-                             'R_Net_dataset': 24,
-                             'O_Net_dataset': 48}
-    for dir in class_data_set_config:
-        class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
+                             # 'R_Net_dataset': 24,
+                             # 'O_Net_dataset': 48
+                             }
+    # for dir in class_data_set_config:
+    #     class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
     landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     landmark_data_set_config = {'O_Net_dataset': 48}
     for dir in landmark_data_set_config:
         landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
                          crop_size=landmark_data_set_config[dir])
+                         '''
+    create_rnet_data()
