@@ -106,7 +106,7 @@ def pnet_boxes(img, pnet, min_face_size=MIN_FACE_SIZE, thresholds=THRESHOLDS, nm
     pnet.eval()
     width, height = img.size
     min_length = min(height, width)
-    print('img min_length is {}'.format(min_length))
+    # print('img min_length is {}'.format(min_length))
     min_detection_size = 12
     factor = 0.707  # sqrt(0.5)
     scales = []
@@ -136,11 +136,13 @@ def pnet_boxes(img, pnet, min_face_size=MIN_FACE_SIZE, thresholds=THRESHOLDS, nm
 
     keep = nms(bounding_boxes[:, 0:5], nms_thresholds[0])
     bounding_boxes = bounding_boxes[keep]
+    # print('bounding_boxes:{}'.format(bounding_boxes[:, 4] > 0.5))
     # 根据 w、h 对 x1,y1,x2,y2 的位置进行微调
     bounding_boxes = calibrate_box(bounding_boxes[:, 0:5], bounding_boxes[:, 5:])
     # 将检测出的框转化成矩形
     bounding_boxes = convert_to_square(bounding_boxes)
     bounding_boxes[:, 0:4] = np.round(bounding_boxes[:, 0:4])
+    # print('bounding_boxes:{}'.format(bounding_boxes[:, 4] > 0.5))
     # print('bounding_boxes:', len(bounding_boxes), bounding_boxes)
     if show_boxes: show_bboxes(img, bounding_boxes, []).show()
     return bounding_boxes
