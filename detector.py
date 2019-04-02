@@ -34,6 +34,7 @@ def run_first_stage(image, net, scale, threshold):
     # img = np.asarray(img, 'float32')
     # preprocess 对图像进行归一化操作
     img = transforms.ToTensor()(img).unsqueeze(0)
+    # img = img.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     # print('img:', img)
 
     output = net(img)
@@ -152,6 +153,7 @@ def rnet_boxes(img, rnet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
     rnet.eval()
     img_boxes = get_image_boxes(bounding_boxes, img, size=24)
     img_boxes = torch.FloatTensor(img_boxes)
+    # img_boxes = img_boxes.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     output = rnet(img_boxes)
     probs = output[0].data.numpy()  # shape [n_boxes, 1]
     offsets = output[1].data.numpy()  # shape [n_boxes, 4]
@@ -176,6 +178,7 @@ def onet_boxes(img, onet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
     if len(img_boxes) == 0:
         return [], []
     img_boxes = torch.FloatTensor(img_boxes)
+    # img_boxes = img_boxes.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     output = onet(img_boxes)
 
     probs = output[0].data.numpy()  # shape [n_boxes, 1]

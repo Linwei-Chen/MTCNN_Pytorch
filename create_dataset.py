@@ -156,9 +156,10 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
 
     from train import load_net, config
     from config import DEVICE
+    import torch
     # args = config()
     dataset_args = dataset_config()
-    pnet = load_net(dataset_args, net_name='pnet')#.to(DEVICE)
+    pnet = load_net(dataset_args, net_name='pnet').to(torch.device('cpu'))
     # dataset_args = dataset_config()
     # [img_num*[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
     cls_img_faces = create_pnet_data_txt_parser(txt_path=dataset_args.class_data_txt_path,
@@ -195,7 +196,7 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
         # print('img_np:{}'.format(img_np))
         bounding_boxes = pnet_boxes(img, pnet, show_boxes=1)
         if use_rnet:
-            rnet = load_net(args, net_name='rnet')#.to(DEVICE)
+            rnet = load_net(args, net_name='rnet').to(torch.device('cpu'))
             bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
 
         # print('bounding_boxes:{}'.format(bounding_boxes[:, 4]))
