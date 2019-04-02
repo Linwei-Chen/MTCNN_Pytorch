@@ -1,2 +1,1 @@
-source activate DL3.7
-python ./train.py --batch_size 32
+/home/charles/anaconda3/envs/DL3.7/bin/python 

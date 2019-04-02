@@ -41,17 +41,17 @@ def config():
                         default='./MTCNN_weighs',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
     parser.add_argument('--train_net', type=str,
-                        default='pnet',
+                        default='pnet', choices=['pnet', 'rnet', 'onet'],
                         help='choose net to train')
     parser.add_argument('--lr', type=float,
                         default=0.001,
                         help='initial learning rate')
-    parser.add_argument('--sub_epoch', type=int,
-                        default=1000,
-                        help='some batches make up a sub_epoch ')
+    # parser.add_argument('--sub_epoch', type=int,
+    #                     default=1000,
+    #                     help='some batches make up a sub_epoch ')
     parser.add_argument('--batch_size', type=int,
                         default=32,
-                        help='some batches make up a sub_epoch ')
+                        help='batch_size ')
     parser.add_argument('--num_workers', type=int,
                         default=0,
                         help='workers for loading the data')
@@ -100,7 +100,8 @@ def load_para(file_name):
         para = {
             'lr': args.lr,
             'iter': 0,
-            # 'train_data': random.shuffle(load_txt()),
+            'loss': [],
+            'val_result': [],
             'optimizer_param': None
         }
         save_safely(para, dir_path=args.save_folder, file_name=file_name)
@@ -225,5 +226,7 @@ net_loss_config = {
 
 if __name__ == '__main__':
     args = config()
+    # data_set = get_dataset(args, 'pnet')[:10]
+    # print(data_set)
     while 1:
         train_net(args, args.train_net, loss_config=net_loss_config[args.train_net])

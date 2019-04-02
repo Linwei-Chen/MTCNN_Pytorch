@@ -8,7 +8,8 @@ from PIL import Image
 from config import DEBUG
 from tqdm import tqdm
 from util import IoU, convert_to_square, nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes, load_img
-from detector import _generate_bboxes, run_first_stage, THRESHOLDS, NMS_THRESHOLDS, MIN_FACE_SIZE, pnet_boxes, rnet_boxes
+from detector import _generate_bboxes, run_first_stage, THRESHOLDS, NMS_THRESHOLDS, MIN_FACE_SIZE, pnet_boxes, \
+    rnet_boxes
 from tqdm import tqdm
 
 
@@ -29,6 +30,8 @@ def dataset_config():
                         help='the dir of CelebA image file')
     parser.add_argument('--output_path', default='/Users/chenlinwei/Dataset', type=str,
                         help='the path to save the created data set at')
+    parser.add_argument('--create_data_set', default=['pnet', 'rnet', 'onet'], type=list,
+                        help='create data set for [\'pnet\', \'rnet\', \'onet\']')
     args = parser.parse_args()
     return args
 
@@ -83,7 +86,7 @@ def create_pnet_data_txt_parser(txt_path, img_dir):
         print('*** warning:WILDER_FACE txt file not exist!')
 
 
-def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, for_onet=False):
+def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False):
     def img2tensor(img):
         from torchvision import transforms
         pass
@@ -177,7 +180,7 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, for_onet=False
         img_np = np.array(img)
         # print('img_np:{}'.format(img_np))
         bounding_boxes = pnet_boxes(img, pnet, show_boxes=1)
-        if for_onet:
+        if use_rnet:
             rnet = load_net(args, net_name='rnet').to(DEVICE)
             bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
 
@@ -437,14 +440,21 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
 
 
 if __name__ == '__main__':
-    print("Creating datasets...")
+    print("===> Creating datasets...")
     # '''
     args = dataset_config()
     print(args)
-    # img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
-    # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
+    if 'pnet' in args.create_data_set:
+        print("===> Creating datasets for pnet...")
+        img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
+        create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
     # landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     # landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
     # '''
-    # create_rnet_data()
-    create_rnet_data(for_onet=True)
+    if 'rnet' in args.create_data_set:
+        print("===> Creating datasets for rnet...")
+        create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False)
+    if 'onet' in args.create_data_set:
+        print("===> Creating datasets for onet...")
+        create_rnet_data(save_dir_name='O_Net_dataset', crop_size=48, use_rnet=True)
+        create_rnet_data(save_dir_name='O_Net_dataset', crop_size=48, use_rnet=True)
