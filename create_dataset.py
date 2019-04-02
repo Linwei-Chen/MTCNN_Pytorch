@@ -8,7 +8,7 @@ from PIL import Image
 from config import DEBUG
 from tqdm import tqdm
 from util import IoU, convert_to_square, nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes, load_img
-from detector import _generate_bboxes, run_first_stage, THRESHOLDS, NMS_THRESHOLDS, MIN_FACE_SIZE, pnet_boxes
+from detector import _generate_bboxes, run_first_stage, THRESHOLDS, NMS_THRESHOLDS, MIN_FACE_SIZE, pnet_boxes, rnet_boxes
 from tqdm import tqdm
 
 
@@ -21,19 +21,19 @@ def dataset_config():
     parser.add_argument('--class_data_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
                         type=str, help='the dir of WILDER FACE image file')
     parser.add_argument('--class_data_augment', default=5,
-                        type=int, help='the dir of WILDER FACE image file')
+                        type=int, help='the augment ratio for create pnet data set')
     parser.add_argument('--landmark_data_txt_path',
                         default='/Users/chenlinwei/Dataset/CNN_FacePoint/train/trainImageList.txt',
                         type=str, help='the path of CelebA .txt file')
     parser.add_argument('--landmark_data_dir', default='/Users/chenlinwei/Dataset/CNN_FacePoint/train', type=str,
                         help='the dir of CelebA image file')
     parser.add_argument('--output_path', default='/Users/chenlinwei/Dataset', type=str,
-                        help='the path to save the created dataset at')
+                        help='the path to save the created data set at')
     args = parser.parse_args()
     return args
 
 
-def class_dataset_txt_parser(txt_path, img_dir):
+def create_pnet_data_txt_parser(txt_path, img_dir):
     """
     :param txt_path: the path of wider_face_train_bbx_gt.txt
     :param img_dir: tha dir of WILDER_FACE/WIDER_train
@@ -83,7 +83,7 @@ def class_dataset_txt_parser(txt_path, img_dir):
         print('*** warning:WILDER_FACE txt file not exist!')
 
 
-def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=NMS_THRESHOLDS):
+def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, for_onet=False):
     def img2tensor(img):
         from torchvision import transforms
         pass
@@ -145,15 +145,15 @@ def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=N
     pnet = load_net(args, net_name='pnet').to(DEVICE)
     dataset_args = dataset_config()
     # [img_num*[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
-    cls_img_faces = class_dataset_txt_parser(txt_path=dataset_args.class_data_txt_path,
-                                             img_dir=dataset_args.class_data_dir)
+    cls_img_faces = create_pnet_data_txt_parser(txt_path=dataset_args.class_data_txt_path,
+                                                img_dir=dataset_args.class_data_dir)
     # [absolute_img_path,[x1,x2,y1,y2],(x,y)of[left_eye,right_eye,nose,mouse_left, mouse_right]]
     ldmk_img_faces = landmark_dataset_txt_parser(txt_path=dataset_args.landmark_data_txt_path,
                                                  img_dir=dataset_args.landmark_data_dir)
     img_faces = ldmk_img_faces + cls_img_faces
     # img_faces = cls_img_faces + ldmk_img_faces
-    output_path = osp.join(dataset_args.output_path, 'R_net_dataset')
-    txt_path = osp.join(output_path, 'R_net_dataset.txt')
+    output_path = osp.join(dataset_args.output_path, save_dir_name)
+    txt_path = osp.join(output_path, '{}.txt'.format(save_dir_name))
     txt = open(txt_path, 'a')
     for img_face in tqdm(img_faces):
         # print('img_face:{}'.format(img_face))
@@ -177,9 +177,13 @@ def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=N
         img_np = np.array(img)
         # print('img_np:{}'.format(img_np))
         bounding_boxes = pnet_boxes(img, pnet, show_boxes=1)
+        if for_onet:
+            rnet = load_net(args, net_name='rnet').to(DEVICE)
+            bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
+
         # print('bounding_boxes:{}'.format(bounding_boxes[:, 4]))
         # ioumax = 0.0
-        for id, box in enumerate(bounding_boxes):
+        for id, box in enumerate(bounding_boxes, start=1):
             # box[(4+1)float]
             # print('box:{}'.format(box))
             box = limit_box(box)
@@ -190,19 +194,19 @@ def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=N
             closet_face = faces[iou_index]
             print('iou_max:{}, iou_index:{}'.format(iou_max, iou_index))
             # ioumax = max(iou, iou_max)
-            img_box = crop_img(img_np=img_np, crop_box=box, crop_size=24)
+            img_box = crop_img(img_np=img_np, crop_box=box, crop_size=crop_size)
             # img_box.show()
             label = None
             # [(0, 0.3), (0.4, 0.65), (0.65, 1.0)]
             if iou <= 0.3:
                 label = 'n'
-                img_box_path = osp.join(save_dir, '{}.jpg'.format(id))
+                img_box_path = osp.join(save_dir, '{}_{:.8f}.jpg'.format(id, iou_max))
                 img_box.save(img_box_path, format='jpeg')
                 txt.write(txt_to_write(osp.relpath(img_box_path, osp.split(txt_path)[0]), label, [], []))
                 pass
             elif 0.4 <= iou <= 0.65:
                 label = 'pf' if ldmk is None else 'l'
-                img_box_path = osp.join(save_dir, '{}.jpg'.format(id))
+                img_box_path = osp.join(save_dir, '{}_{:.8f}.jpg'.format(id, iou_max))
                 img_box.save(img_box_path, format='jpeg')
                 offset = cal_offset(closet_face, box)
                 ldmk_offset = cal_landmark_offset(box, ldmk)
@@ -210,20 +214,18 @@ def create_rnet_data(min_face_size=20.0, thresholds=THRESHOLDS, nms_thresholds=N
                 pass
             elif 0.65 < iou:
                 label = 'p' if ldmk is None else 'l'
-                img_box_path = osp.join(save_dir, '{}.jpg'.format(id))
+                img_box_path = osp.join(save_dir, '{}_{:.8f}.jpg'.format(id, iou_max))
                 img_box.save(img_box_path, format='jpeg')
                 offset = cal_offset(closet_face, box)
                 ldmk_offset = cal_landmark_offset(box, ldmk)
                 txt.write(txt_to_write(osp.relpath(img_box_path, osp.split(txt_path)[0]), label, offset, ldmk_offset))
-                pass
             # print('iou:{}'.format(iou))
     txt.close()
     pass
 
 
-# TODO(chenlinwei)：检查offset值可能有误--的确有误，应当用pre的w，h
 # create positive, negative, part face sample for ratio of 3:1:1 where 1 means augment
-def class_dataset(img_faces, output_path, save_dir_name, crop_size, Augment=5):
+def create_pnet_data(img_faces, output_path, save_dir_name, crop_size, Augment=5):
     """
     :param img_faces: [img_path,[faces_num, 4==>(x1,y1,w,h)]]
     :param output_path:
@@ -358,6 +360,7 @@ def landmark_dataset_txt_parser(txt_path, img_dir):
         print('*** warning:WILDER_FACE txt file not exist!')
 
 
+# This function is abandoned
 def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
     """
     :param landmark_faces: list_shape[absolute_img_path,[x1,x2,y1,y2],(x,y)of[left_eye,right_eye,nose,mouse_left, mouse_right]]
@@ -382,16 +385,16 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
     # boxes_two_point: x1,y1,x2,y2 [sample_num, 4]
     # CNN_face_point [x1,x2,y1,y2], 左上角为(0, 0)
     boxes_two_point = np.array([boxes[:, 0], boxes[:, 2], boxes[:, 1], boxes[:, 3]]).T
-    print('boxes_two_point shape:', boxes_two_point.shape)
-    print('boxes_two_point :', boxes_two_point)
+    # print('boxes_two_point shape:', boxes_two_point.shape)
+    # print('boxes_two_point :', boxes_two_point)
     square_boxes = convert_to_square(boxes_two_point)
-    print('square_boxes shape', square_boxes.shape)
+    # print('square_boxes shape', square_boxes.shape)
     # landmark :[sample_num, 10]
     landmark = np.array([landmark_faces[i][2] for i in range(len(landmark_faces))])
-    print('landmark shape:', landmark.shape)
+    # print('landmark shape:', landmark.shape)
     # square_boxes_length : [sample_num, 1]
     square_boxes_length = square_boxes[:, 2] - square_boxes[:, 0] + 1
-    print('square_boxes_length shape:', square_boxes_length.shape)
+    # print('square_boxes_length shape:', square_boxes_length.shape)
     # offset : [sample_num, 4]
     offset = np.array([
         (boxes_two_point[:, 0] - square_boxes[:, 0]) / square_boxes_length,
@@ -399,15 +402,15 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
         (boxes_two_point[:, 2] - square_boxes[:, 2]) / square_boxes_length,
         (boxes_two_point[:, 3] - square_boxes[:, 3]) / square_boxes_length,
     ]).T
-    print('offset shape', offset.shape)
-    print('landmark:', landmark)
-    print('square_boxes:', square_boxes)
-    print('square_boxes_length:', square_boxes_length)
+    # print('offset shape', offset.shape)
+    # print('landmark:', landmark)
+    # print('square_boxes:', square_boxes)
+    # print('square_boxes_length:', square_boxes_length)
     landmark = np.array([
         (landmark[:, i] - square_boxes[:, i % 2]) / square_boxes_length for i in range(landmark.shape[1])
     ]).T
-    print('landmark', landmark)
-    print('landmark.shape', landmark.shape)
+    # print('landmark', landmark)
+    # print('landmark.shape', landmark.shape)
     landmark_faces_path = [landmark_faces[i][0] for i in range(len(landmark_faces))]
     dataset_txt_save_path = osp.join(output_path, save_dir_name, save_dir_name + '.txt')
     dataset_save_path = osp.join(output_path, save_dir_name, 'landmark/')
@@ -435,20 +438,13 @@ def landmark_dataset(landmark_faces, output_path, save_dir_name, crop_size):
 
 if __name__ == '__main__':
     print("Creating datasets...")
-    '''
+    # '''
     args = dataset_config()
     print(args)
-    img_faces = class_dataset_txt_parser(args.class_data_txt_path, args.class_data_dir)
-    class_data_set_config = {'P_Net_dataset': 12,
-                             # 'R_Net_dataset': 24,
-                             # 'O_Net_dataset': 48
-                             }
-    # for dir in class_data_set_config:
-    #     class_dataset(img_faces, output_path=args.output_path, save_dir_name=dir, crop_size=class_data_set_config[dir])
-    landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
-    landmark_data_set_config = {'O_Net_dataset': 48}
-    for dir in landmark_data_set_config:
-        landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name=dir,
-                         crop_size=landmark_data_set_config[dir])
-                         '''
-    create_rnet_data()
+    # img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
+    # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
+    # landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
+    # landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
+    # '''
+    # create_rnet_data()
+    create_rnet_data(for_onet=True)
