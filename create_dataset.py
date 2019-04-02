@@ -30,8 +30,20 @@ def dataset_config():
                         help='the dir of CelebA image file')
     parser.add_argument('--output_path', default='/Users/chenlinwei/Dataset', type=str,
                         help='the path to save the created data set at')
-    parser.add_argument('--create_data_set', default=['pnet', 'rnet', 'onet'], type=list,
+    parser.add_argument('--create_data_set', default='pnet', type=str, choices=['pnet', 'rnet', 'onet'],
                         help='create data set for [\'pnet\', \'rnet\', \'onet\']')
+    parser.add_argument('--p_net_data', type=str,
+                        default='/Users/chenlinwei/Dataset/P_Net_dataset/P_Net_dataset.txt',
+                        help='the path of .txt file including the training data path')
+    parser.add_argument('--r_net_data', type=str,
+                        default='/Users/chenlinwei/Dataset/R_Net_dataset/R_Net_dataset.txt',
+                        help='the path of .txt file including the training data path')
+    parser.add_argument('--o_net_data', type=str,
+                        default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txt',
+                        help='the path of .txt file including the training data path')
+    parser.add_argument('--save_folder', type=str,
+                        default='./MTCNN_weighs',
+                        help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
     args = parser.parse_args()
     return args
 
@@ -144,9 +156,10 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
 
     from train import load_net, config
     from config import DEVICE
-    args = config()
-    pnet = load_net(args, net_name='pnet').to(DEVICE)
+    # args = config()
     dataset_args = dataset_config()
+    pnet = load_net(dataset_args, net_name='pnet')#.to(DEVICE)
+    # dataset_args = dataset_config()
     # [img_num*[absolute_img_path,[faces_num*4(which is x1,y1,w,h)]]]
     cls_img_faces = create_pnet_data_txt_parser(txt_path=dataset_args.class_data_txt_path,
                                                 img_dir=dataset_args.class_data_dir)
@@ -156,6 +169,7 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
     img_faces = ldmk_img_faces + cls_img_faces
     # img_faces = cls_img_faces + ldmk_img_faces
     output_path = osp.join(dataset_args.output_path, save_dir_name)
+    make_dir(output_path)
     txt_path = osp.join(output_path, '{}.txt'.format(save_dir_name))
     txt = open(txt_path, 'a')
     for img_face in tqdm(img_faces):
@@ -181,7 +195,7 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
         # print('img_np:{}'.format(img_np))
         bounding_boxes = pnet_boxes(img, pnet, show_boxes=1)
         if use_rnet:
-            rnet = load_net(args, net_name='rnet').to(DEVICE)
+            rnet = load_net(args, net_name='rnet')#.to(DEVICE)
             bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
 
         # print('bounding_boxes:{}'.format(bounding_boxes[:, 4]))
@@ -224,7 +238,6 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
                 txt.write(txt_to_write(osp.relpath(img_box_path, osp.split(txt_path)[0]), label, offset, ldmk_offset))
             # print('iou:{}'.format(iou))
     txt.close()
-    pass
 
 
 # create positive, negative, part face sample for ratio of 3:1:1 where 1 means augment
@@ -444,17 +457,17 @@ if __name__ == '__main__':
     # '''
     args = dataset_config()
     print(args)
-    if 'pnet' in args.create_data_set:
+    if 'pnet' == args.create_data_set:
         print("===> Creating datasets for pnet...")
         img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
         create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
     # landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     # landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
     # '''
-    if 'rnet' in args.create_data_set:
+    if 'rnet' == args.create_data_set:
         print("===> Creating datasets for rnet...")
         create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False)
-    if 'onet' in args.create_data_set:
+    if 'onet' == args.create_data_set:
         print("===> Creating datasets for onet...")
         create_rnet_data(save_dir_name='O_Net_dataset', crop_size=48, use_rnet=True)
         create_rnet_data(save_dir_name='O_Net_dataset', crop_size=48, use_rnet=True)
