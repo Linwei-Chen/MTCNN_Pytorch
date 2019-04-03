@@ -194,7 +194,7 @@ class LossFn:
             # return self.loss_box(torch.tensor([0.0]), torch.tensor([0.0]))
             return torch.tensor([0.0])
         else:
-            print('valid_sample_num', valid_sample_num)
+            # print('valid_sample_num', valid_sample_num)
             return self.loss_box(valid_pred_offset, valid_gt_offset) * self.box_factor
         # return torch.tensor([0.])
 

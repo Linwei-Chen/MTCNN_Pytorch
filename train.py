@@ -197,12 +197,6 @@ def train_net(args, net_name='pnet', loss_config=[]):
         iter_count += 1
         # print('tp:{}'.format(tp))
         # update lr rate
-        if 0 == iter_count % args.half_lr_steps:
-            lr /= 2
-            para.update({'lr': lr})
-            for param_groups in optimizer.param_groups:
-                param_groups['lr'] = lr
-            print('*** lr updated:{}'.format(lr))
         wrap = (img_tensor, label, offset, landmark)
         (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
         det, box, ldmk = net(img_tensor)
@@ -211,12 +205,19 @@ def train_net(args, net_name='pnet', loss_config=[]):
         all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box,
                                    landmark_flag=landmark_flag, pred_landmark=ldmk, gt_landmark=landmark)
         t1 = time.perf_counter()
-        print('===> iter:{}\t| loss:{:.8f}\t| time:{:.8f}'.format(iter_count, all_loss.item(), t1 - t0))
+        print('===> iter:{}\t| loss:{:.8f}\t| lr:{} | time:{:.8f}'
+              .format(iter_count, all_loss.item(),lr,  t1 - t0))
         # print(all_loss)
         t0 = time.perf_counter()
         all_loss.backward()
         optimizer.step()
         if 0 == iter_count % args.save_steps:
+            if 0 == iter_count % args.half_lr_steps:
+                lr /= 2
+                para.update({'lr': lr})
+                for param_groups in optimizer.param_groups:
+                    param_groups['lr'] = lr
+                print('*** lr updated:{}'.format(lr))
             para.update({
                 'lr': lr,
                 'iter': iter_count,
