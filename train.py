@@ -151,10 +151,10 @@ def get_inplace_data_set(args, net_name):
     if net_name == 'pnet':
         IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=12)
     elif net_name == 'rnet':
-        IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=24, pnet=load_net(args, 'pnet'))
+        IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=24, pnet=load_net(args, 'pnet').to('cpu'))
     elif net_name == 'onet':
         IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=48,
-                             pnet=load_net(args, 'pnet'), rnet=load_net(args, 'rnet'))
+                             pnet=load_net(args, 'pnet').to('cpu'), rnet=load_net(args, 'rnet').to('cpu'))
     return DataLoader(IDS,
                       batch_size=args.batch_size,
                       shuffle=True,
@@ -162,8 +162,7 @@ def get_inplace_data_set(args, net_name):
                       pin_memory=False)
 
 
-def lr_schedule(args, iter, ):
-    pass
+
 
 
 def save_safely(file, dir_path, file_name):
