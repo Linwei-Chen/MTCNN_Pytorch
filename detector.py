@@ -20,7 +20,7 @@ def detect_faces(args, img, min_face_size=MIN_FACE_SIZE, thresholds=THRESHOLDS,
     # STAGE 2
     bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
     # STAGE 3
-    bounding_boxes = onet_boxes(img, onet, bounding_boxes)
+    bounding_boxes, landmarks = onet_boxes(img, onet, bounding_boxes)
     return bounding_boxes, landmarks
 
 
@@ -131,7 +131,18 @@ def pnet_boxes(img, pnet, min_face_size=MIN_FACE_SIZE, thresholds=THRESHOLDS, nm
     # 把每个scale找到的框框全部打开堆在一起
     # [total_boxes_num, 5] 是list
     bounding_boxes = [i for i in bounding_boxes if i is not None]
-    # print(len(bounding_boxes), len(bounding_boxes[0]))
+    # print(bounding_boxes)
+    # bounding_boxes = np.array(bounding_boxes)
+    # print(bounding_boxes.shape, img.size)
+    try:
+        _ = bounding_boxes[0]
+        # print('bounding_boxes:{}'.format(len(bounding_boxes)))
+        # print('bounding_boxes[0]:{}'.format(len(bounding_boxes[0])))
+    except Exception:
+        print(bounding_boxes)
+        img.show()
+    if len(bounding_boxes) == 0:
+        return None
     bounding_boxes = np.vstack(bounding_boxes)
     # print(bounding_boxes.shape)
 
@@ -206,10 +217,10 @@ def onet_boxes(img, onet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
     bounding_boxes = bounding_boxes[keep]
     landmarks = landmarks[keep]
     show_bboxes(img, bounding_boxes, landmarks).show()
-    return bounding_boxes
+    return bounding_boxes, landmarks
 
 
 if __name__ == '__main__':
     args = config()
-    image = load_img('/Users/chenlinwei/Code/20190314mtcnn-pytorch-2/images/test3.jpg')
+    image = load_img('./test_images/test3.jpg')
     bounding_boxes, landmarks = detect_faces(args, image)

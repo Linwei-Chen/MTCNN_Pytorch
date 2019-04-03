@@ -42,7 +42,7 @@ def dataset_config():
                         default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
     parser.add_argument('--save_folder', type=str,
-                        default='./MTCNN_weighs',
+                        default='./weights',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
     args = parser.parse_args()
     return args
@@ -191,10 +191,11 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
         ldmk = None if len(img_face) < 3 else [int(i) for i in img_face[2]]
         img = load_img(img_path)
         width, hight = img.size
-        print('width:{}, hight:{}'.format(width, hight))
+        # print('width:{}, hight:{}'.format(width, hight))
         img_np = np.array(img)
         # print('img_np:{}'.format(img_np))
         bounding_boxes = pnet_boxes(img, pnet, show_boxes=1)
+        bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
         if use_rnet:
             rnet = load_net(args, net_name='rnet').to(torch.device('cpu'))
             bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
@@ -210,7 +211,7 @@ def create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False
             iou_max = iou.max()
             iou_index = iou.argmax()
             closet_face = faces[iou_index]
-            print('iou_max:{}, iou_index:{}'.format(iou_max, iou_index))
+            # print('iou_max:{}, iou_index:{}'.format(iou_max, iou_index))
             # ioumax = max(iou, iou_max)
             img_box = crop_img(img_np=img_np, crop_box=box, crop_size=crop_size)
             # img_box.show()
@@ -462,6 +463,8 @@ if __name__ == '__main__':
         print("===> Creating datasets for pnet...")
         img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
         create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
+        # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='R_Net_dataset', crop_size=24)
+        # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
     # landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
     # landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
     # '''

@@ -1,0 +1,2 @@
+cd /media/charles/STORAGE/code/20190315MTCNN-Pytorch
+/home/charles/anaconda3/envs/DL3.7/bin/python train.py --p_net_data /media/charles/STORAGE/dataset/P_Net_dataset/P_Net_dataset.txt --r_net_data /media/charles/750GB/dataset/R_Net_dataset/R_Net_dataset.txt --o_net_data /media/charles/STORAGE/dataset/O_Net_dataset/O_Net_dataset.txt --save_folder ./MTCNN_weighs --train_net rnet --num_workers 12 --save_steps 100

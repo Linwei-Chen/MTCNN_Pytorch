@@ -1,6 +1,5 @@
 from config import *
 from model import P_Net, R_Net, O_Net, LossFn
-from dataset import mtcnn_dataset
 import random
 import time
 import torch
@@ -16,6 +15,18 @@ import os.path as osp
 
 def config():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--class_data_txt_path',
+                        default='/Users/chenlinwei/Dataset/WILDER_FACE/wider_face_split/wider_face_train_short.txt',
+                        type=str, help='the path of WILDER FACE .txt file')
+    parser.add_argument('--class_data_dir', default='/Users/chenlinwei/Dataset/WILDER_FACE/WIDER_train',
+                        type=str, help='the dir of WILDER FACE image file')
+    parser.add_argument('--class_data_augment', default=5,
+                        type=int, help='the augment ratio for create pnet data set')
+    parser.add_argument('--landmark_data_txt_path',
+                        default='/Users/chenlinwei/Dataset/CNN_FacePoint/train/trainImageList.txt',
+                        type=str, help='the path of CelebA .txt file')
+    parser.add_argument('--landmark_data_dir', default='/Users/chenlinwei/Dataset/CNN_FacePoint/train', type=str,
+                        help='the dir of CelebA image file')
     parser.add_argument('--p_net_data', type=str,
                         default='/Users/chenlinwei/Dataset/P_Net_dataset/P_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
@@ -38,7 +49,7 @@ def config():
     #                     default=osp.join(osp.expanduser('~'), 'Dataset/CNN_FacePoint/train/testImageList.txt'),
     #                     help='The path of .txt file including the testing data path')
     parser.add_argument('--save_folder', type=str,
-                        default='./MTCNN_weighs',
+                        default='./weights',  # './MTCNN_weighs',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
     parser.add_argument('--train_net', type=str,
                         default='pnet', choices=['pnet', 'rnet', 'onet'],
@@ -53,7 +64,7 @@ def config():
                         default=32,
                         help='batch_size ')
     parser.add_argument('--num_workers', type=int,
-                        default=0,
+                        default=4,
                         help='workers for loading the data')
     parser.add_argument('--half_lr_steps', type=int,
                         default=10000,
@@ -62,7 +73,7 @@ def config():
     #                     default={40000:},
     #                     help='half the lr every half_lr_steps iter')
     parser.add_argument('--save_steps', type=int,
-                        default=27,
+                        default=100,
                         help='save para, model every save_steps iter')
 
     args = parser.parse_args()
@@ -109,6 +120,7 @@ def load_para(file_name):
 
 
 def get_dataset(args, net_name):
+    from dataset import mtcnn_dataset
     net_list = {'pnet': args.p_net_data,
                 'rnet': args.r_net_data,
                 'onet': args.o_net_data}
@@ -125,6 +137,25 @@ def get_dataset(args, net_name):
     print('===> the data dir is {}'.format(data_dir))
     dataset = mtcnn_dataset(data_list=data_list, data_dir=data_dir)
     return DataLoader(dataset,
+                      batch_size=args.batch_size,
+                      shuffle=True,
+                      num_workers=args.num_workers,
+                      pin_memory=False)
+
+
+def get_inplace_data_set(args, net_name):
+    from dataset import InplaceDataset
+    from create_dataset import create_pnet_data_txt_parser, landmark_dataset_txt_parser
+    img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
+    img_face_landmark = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
+    if net_name == 'pnet':
+        IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=12)
+    elif net_name == 'rnet':
+        IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=24, pnet=load_net(args, 'pnet'))
+    elif net_name == 'onet':
+        IDS = InplaceDataset(img_face_landmark, img_faces, cropsize=48,
+                             pnet=load_net(args, 'pnet'), rnet=load_net(args, 'rnet'))
+    return DataLoader(IDS,
                       batch_size=args.batch_size,
                       shuffle=True,
                       num_workers=args.num_workers,
@@ -160,7 +191,7 @@ def train_net(args, net_name='pnet', loss_config=[]):
     if para['optimizer_param'] is not None:
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
-    data_set = get_dataset(args, net_name)
+    data_set = get_inplace_data_set(args, net_name)
     t0 = time.perf_counter()
     for _, (img_tensor, label, offset, landmark_flag, landmark) in enumerate(data_set, iter_count):
         iter_count += 1
