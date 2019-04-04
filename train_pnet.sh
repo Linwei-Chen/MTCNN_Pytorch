@@ -1,0 +1,2 @@
+cd /media/charles/STORAGE/code/20190315MTCNN-Pytorch
+/home/charles/anaconda3/envs/DL3.7/bin/python ./train.py --class_data_txt_path /media/charles/750GB/WILDER_FACE/wider_face_split/wider_face_train_bbx_gt.txt --class_data_dir /media/charles/750GB/WILDER_FACE/WIDER_train --landmark_data_txt_path /media/charles/750GB/CNN_FacePoint/train/trainImageList.txt --landmark_data_dir /media/charles/750GB/CNN_FacePoint/train --save_folder ./weights --lr 0.001 --batch_size 32 --num_workers 12 --save_steps 100 --train_net pnet
