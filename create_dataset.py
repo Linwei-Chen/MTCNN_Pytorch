@@ -463,11 +463,15 @@ if __name__ == '__main__':
         print("===> Creating datasets for pnet...")
         img_faces = create_pnet_data_txt_parser(args.class_data_txt_path, args.class_data_dir)
         create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='P_Net_dataset', crop_size=12)
-        # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='R_Net_dataset', crop_size=24)
-        # create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
-    # landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
-    # landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
-    # '''
+        '''
+        # 生成24x24
+        create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='R_Net_dataset', crop_size=24)
+        # 生成48x48
+        create_pnet_data(img_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
+        # 生成48x48 的landmark数据
+        landmark_faces = landmark_dataset_txt_parser(args.landmark_data_txt_path, args.landmark_data_dir)
+        landmark_dataset(landmark_faces, output_path=args.output_path, save_dir_name='O_Net_dataset', crop_size=48)
+        '''
     if 'rnet' == args.create_data_set:
         print("===> Creating datasets for rnet...")
         create_rnet_data(save_dir_name='R_net_dataset', crop_size=24, use_rnet=False)
