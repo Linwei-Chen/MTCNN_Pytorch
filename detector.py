@@ -207,20 +207,22 @@ def onet_boxes(img, onet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
     width = bounding_boxes[:, 2] - bounding_boxes[:, 0] + 1.0
     height = bounding_boxes[:, 3] - bounding_boxes[:, 1] + 1.0
     xmin, ymin = bounding_boxes[:, 0], bounding_boxes[:, 1]
+    # print('width:{},\nheight:{},\nxmin:{},\nymin:{}\n'.format(width, height, xmin, ymin))
     # landmark[,前5个为x，后5个为y]
     # 在左上角坐标的基础上，通过 w，h 确定脸各关键点的坐标。
-    landmarks[:, 0:5] = np.expand_dims(xmin, 1) + np.expand_dims(width, 1) * landmarks[:, 0::2]
-    landmarks[:, 5:10] = np.expand_dims(ymin, 1) + np.expand_dims(height, 1) * landmarks[:, 1::2]
-
+    landmarks_pixel = np.zeros(landmarks.shape)
+    landmarks_pixel[:, 0:5] = (np.expand_dims(xmin, 1) + np.expand_dims(width, 1) * landmarks[:, 0::2]).copy()
+    landmarks_pixel[:, 5:10] = (np.expand_dims(ymin, 1) + np.expand_dims(height, 1) * landmarks[:, 1::2]).copy()
+    # for i in landmarks:print(i)
     bounding_boxes = calibrate_box(bounding_boxes, offsets)
     keep = nms(bounding_boxes, nms_thresholds[2], mode='min')
     bounding_boxes = bounding_boxes[keep]
-    landmarks = landmarks[keep]
-    show_bboxes(img, bounding_boxes, landmarks).show()
-    return bounding_boxes, landmarks
+    landmarks_pixel = landmarks_pixel[keep]
+    show_bboxes(img, bounding_boxes, landmarks_pixel).show()
+    return bounding_boxes, landmarks_pixel
 
 
 if __name__ == '__main__':
     args = config()
-    image = load_img('./test_images/test3.jpg')
+    image = load_img('./test_images/test4.jpg')
     bounding_boxes, landmarks = detect_faces(args, image)
