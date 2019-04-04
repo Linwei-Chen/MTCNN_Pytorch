@@ -61,6 +61,7 @@ class InplaceDataset(data.Dataset):
         ratio_sum = float(sum(ratio))
         self.ratio = [i / ratio_sum for i in ratio]
         self.cache = []
+        print('===> data set size:{}'.format(self.__len__()))
         # self.ratio = ratio
         # self.dict = {'p': 0.0, 'pf': 0.0, 'l': 1.0, 'n': 0.0}
 
@@ -180,7 +181,7 @@ class InplaceDataset(data.Dataset):
             # label = random.choice(['n', 'np', 'pf', 'p'], p=self.ratio)
             # label = 'np'
             # print('label:{}'.format(label))
-            # if len(self.cache) != 0:return self.cache.pop(0)
+            if len(self.cache) != 0: return self.cache.pop(0)
             iou_th = {'n': (0, 0.3), 'pf': (0.4, 0.65), 'p': (0.65, 1.0)}
             # sigma = {'n': 1, 'np': 0.3, 'pf': 0.1, 'p': 0.02}
             from detector import pnet_boxes, rnet_boxes
@@ -216,7 +217,7 @@ class InplaceDataset(data.Dataset):
                         self.cache.append((crop_img, get_real_label(label),
                                            cal_offset(closet_face, crop_box), cal_landmark_offset(crop_box, ldmk)))
 
-            return self.cache.pop(0)
+            return (None, None, None, None) if len(self.cache) == 0 else self.cache.pop(0)
 
     def __getitem__(self, index):
         img, faces, ldmk = self.get_img_faces_ldmk(index)
