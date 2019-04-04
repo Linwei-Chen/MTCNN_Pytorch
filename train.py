@@ -162,9 +162,6 @@ def get_inplace_data_set(args, net_name):
                       pin_memory=False)
 
 
-
-
-
 def save_safely(file, dir_path, file_name):
     if not osp.exists(dir_path):
         os.mkdir(dir_path)
@@ -204,8 +201,8 @@ def train_net(args, net_name='pnet', loss_config=[]):
         all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box,
                                    landmark_flag=landmark_flag, pred_landmark=ldmk, gt_landmark=landmark)
         t1 = time.perf_counter()
-        print('===> iter:{}\t| loss:{:.8f}\t| lr:{} | time:{:.8f}'
-              .format(iter_count, all_loss.item(),lr,  t1 - t0))
+        print('===> iter:{}\t| loss:{:.8f}\t| lr:{:.12f} | time:{:.8f}'
+              .format(iter_count, all_loss.item(), lr, t1 - t0))
         # print(all_loss)
         t0 = time.perf_counter()
         all_loss.backward()
