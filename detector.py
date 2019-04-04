@@ -8,7 +8,7 @@ import torch
 from util import nms, calibrate_box, get_image_boxes, convert_to_square, show_bboxes, load_img
 
 THRESHOLDS = [0.6, 0.7, 0.8]
-NMS_THRESHOLDS = [0.7, 0.7, 0.7]
+NMS_THRESHOLDS = [0.6, 0.6, 0.6]
 MIN_FACE_SIZE = 20.0
 
 
@@ -224,6 +224,6 @@ def onet_boxes(img, onet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
 
 if __name__ == '__main__':
     args = config()
-    for i in range(1, 11):
+    for i in range(1, 19):
         image = load_img('./test_images/test{}.jpg'.format(i))
         bounding_boxes, landmarks = detect_faces(args, image)
