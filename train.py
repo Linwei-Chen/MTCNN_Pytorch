@@ -36,18 +36,6 @@ def config():
     parser.add_argument('--o_net_data', type=str,
                         default='/Users/chenlinwei/Dataset/O_Net_dataset/O_Net_dataset.txt',
                         help='the path of .txt file including the training data path')
-    # parser.add_argument('--class_training_data_path', type=str,
-    #                     default='/Users/chenlinwei/Code/20190315MTCNN-Pytorch/P_Net_dataset.txt',
-    #                     help='the path of .txt file including the training data path')
-    # parser.add_argument('--class_testing_data_path', type=str,
-    #                     default=osp.join(osp.expanduser('~'), 'Dataset/CNN_FacePoint/train/testImageList.txt'),
-    #                     help='The path of .txt file including the testing data path')
-    # parser.add_argument('--landmark_training_data', type=str,
-    #                     default=osp.join(osp.expanduser('~'), 'Dataset/CNN_FacePoint/train/trainImageList.txt'),
-    #                     help='the path of .txt file including the training data path')
-    # parser.add_argument('--landmark_testing_data', type=str,
-    #                     default=osp.join(osp.expanduser('~'), 'Dataset/CNN_FacePoint/train/testImageList.txt'),
-    #                     help='The path of .txt file including the testing data path')
     parser.add_argument('--save_folder', type=str,
                         default='./weights',  # './MTCNN_weighs',
                         help='the folder of p/r/onet_para.pkl, p/r/onet.pkl saved')
@@ -177,7 +165,7 @@ def save_safely(file, dir_path, file_name):
         torch.save(file, save_path)
 
 
-def train_net(args, net_name='pnet', loss_config=[]):
+def train_net(args, net_name='pnet', use_inplace_dataset=True, loss_config=[]):
     net = load_net(args, net_name)
     para = load_para(net_name + '_para.pkl')
     lr = para['lr']
@@ -188,7 +176,10 @@ def train_net(args, net_name='pnet', loss_config=[]):
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
     while True:
-        data_set = get_inplace_data_set(args, net_name)
+        if use_inplace_dataset:
+            data_set = get_inplace_data_set(args, net_name)
+        else:
+            data_set = get_dataset(args, net_name)
         t0 = time.perf_counter()
         for _, (img_tensor, label, offset, landmark_flag, landmark) in enumerate(data_set, iter_count):
             iter_count += 1
