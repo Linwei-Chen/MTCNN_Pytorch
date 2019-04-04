@@ -187,40 +187,41 @@ def train_net(args, net_name='pnet', loss_config=[]):
     if para['optimizer_param'] is not None:
         optimizer.state_dict()['param_groups'][0].update(para['optimizer_param'])
         print('===> updated the param of optimizer.')
-    data_set = get_inplace_data_set(args, net_name)
-    t0 = time.perf_counter()
-    for _, (img_tensor, label, offset, landmark_flag, landmark) in enumerate(data_set, iter_count):
-        iter_count += 1
-        # print('tp:{}'.format(tp))
-        # update lr rate
-        wrap = (img_tensor, label, offset, landmark)
-        (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
-        det, box, ldmk = net(img_tensor)
-        optimizer.zero_grad()
-        # print('offset:', offset)
-        all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box,
-                                   landmark_flag=landmark_flag, pred_landmark=ldmk, gt_landmark=landmark)
-        t1 = time.perf_counter()
-        print('===> iter:{}\t| loss:{:.8f}\t| lr:{:.12f} | time:{:.8f}'
-              .format(iter_count, all_loss.item(), lr, t1 - t0))
-        # print(all_loss)
+    while True:
+        data_set = get_inplace_data_set(args, net_name)
         t0 = time.perf_counter()
-        all_loss.backward()
-        optimizer.step()
-        if 0 == iter_count % args.save_steps:
-            if 0 == iter_count % args.half_lr_steps:
-                lr /= 2
-                para.update({'lr': lr})
-                for param_groups in optimizer.param_groups:
-                    param_groups['lr'] = lr
-                print('*** lr updated:{}'.format(lr))
-            para.update({
-                'lr': lr,
-                'iter': iter_count,
-                'optimizer_param': optimizer.state_dict()['param_groups'][0]
-            })
-            save_safely(net.state_dict(), args.save_folder, net_name + '.pkl')
-            save_safely(para, args.save_folder, net_name + '_para.pkl')
+        for _, (img_tensor, label, offset, landmark_flag, landmark) in enumerate(data_set, iter_count):
+            iter_count += 1
+            # print('tp:{}'.format(tp))
+            # update lr rate
+            wrap = (img_tensor, label, offset, landmark)
+            (img_tensor, label, offset, landmark) = [i.to(DEVICE) for i in wrap]
+            det, box, ldmk = net(img_tensor)
+            optimizer.zero_grad()
+            # print('offset:', offset)
+            all_loss = loss.total_loss(gt_label=label, pred_label=det, gt_offset=offset, pred_offset=box,
+                                       landmark_flag=landmark_flag, pred_landmark=ldmk, gt_landmark=landmark)
+            t1 = time.perf_counter()
+            print('===> iter:{}\t| loss:{:.8f}\t| lr:{:.12f} | time:{:.8f}'
+                  .format(iter_count, all_loss.item(), lr, t1 - t0))
+            # print(all_loss)
+            t0 = time.perf_counter()
+            all_loss.backward()
+            optimizer.step()
+            if 0 == iter_count % args.save_steps:
+                if 0 == iter_count % args.half_lr_steps:
+                    lr /= 2
+                    para.update({'lr': lr})
+                    for param_groups in optimizer.param_groups:
+                        param_groups['lr'] = lr
+                    print('*** lr updated:{}'.format(lr))
+                para.update({
+                    'lr': lr,
+                    'iter': iter_count,
+                    'optimizer_param': optimizer.state_dict()['param_groups'][0]
+                })
+                save_safely(net.state_dict(), args.save_folder, net_name + '.pkl')
+                save_safely(para, args.save_folder, net_name + '_para.pkl')
 
 
 def load_txt(data_path):
@@ -256,5 +257,4 @@ if __name__ == '__main__':
     args = config()
     # data_set = get_dataset(args, 'pnet')[:10]
     # print(data_set)
-    while 1:
-        train_net(args, args.train_net, loss_config=net_loss_config[args.train_net])
+    train_net(args, args.train_net, loss_config=net_loss_config[args.train_net])
