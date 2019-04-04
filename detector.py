@@ -16,9 +16,9 @@ def detect_faces(args, img, min_face_size=MIN_FACE_SIZE, thresholds=THRESHOLDS,
                  nms_thresholds=NMS_THRESHOLDS):
     pnet, rnet, onet = load_net(args, 'pnet'), load_net(args, 'rnet'), load_net(args, 'onet')
     # STAGE 1
-    bounding_boxes = pnet_boxes(img, pnet)
+    bounding_boxes = pnet_boxes(img, pnet, show_boxes=False)
     # STAGE 2
-    bounding_boxes = rnet_boxes(img, rnet, bounding_boxes)
+    bounding_boxes = rnet_boxes(img, rnet, bounding_boxes, show_boxes=False)
     # STAGE 3
     bounding_boxes, landmarks = onet_boxes(img, onet, bounding_boxes)
     return bounding_boxes, landmarks
@@ -224,5 +224,6 @@ def onet_boxes(img, onet, bounding_boxes, thresholds=THRESHOLDS, nms_thresholds=
 
 if __name__ == '__main__':
     args = config()
-    image = load_img('./test_images/test4.jpg')
-    bounding_boxes, landmarks = detect_faces(args, image)
+    for i in range(1, 11):
+        image = load_img('./test_images/test{}.jpg'.format(i))
+        bounding_boxes, landmarks = detect_faces(args, image)
