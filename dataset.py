@@ -94,7 +94,7 @@ class InplaceDataset(data.Dataset):
 
         return load_img(img_path), faces, ldmk
 
-    def get_crop_img_label_offset_ldmk(self, img, faces, ldmk):
+    def get_crop_img_label_offset_ldmk(self, img, faces, ldmk, index):
         def get_crop_img(img_np, crop_box, crop_size):
             # print('img_np:{}, crop_box:{}'.format(img_np, crop_box))
             # print('img_np.shape:{}'.format(img_np.shape))
@@ -181,7 +181,9 @@ class InplaceDataset(data.Dataset):
             # label = random.choice(['n', 'np', 'pf', 'p'], p=self.ratio)
             # label = 'np'
             # print('label:{}'.format(label))
-            if len(self.cache) != 0: return self.cache.pop(0)
+            if len(self.cache) != 0:
+                self.img_faces.append(self.img_faces[index])
+                return self.cache.pop(0)
             iou_th = {'n': (0, 0.3), 'pf': (0.4, 0.65), 'p': (0.65, 1.0)}
             # sigma = {'n': 1, 'np': 0.3, 'pf': 0.1, 'p': 0.02}
             from detector import pnet_boxes, rnet_boxes
@@ -221,7 +223,7 @@ class InplaceDataset(data.Dataset):
 
     def __getitem__(self, index):
         img, faces, ldmk = self.get_img_faces_ldmk(index)
-        crop_img, label, offset, ldmk = self.get_crop_img_label_offset_ldmk(img, faces, ldmk)
+        crop_img, label, offset, ldmk = self.get_crop_img_label_offset_ldmk(img, faces, ldmk, index)
         if crop_img is None: return self.__getitem__(random.randint(0, self.__len__()))
         img_tensor = transforms.ToTensor()(crop_img)
         # label = torch.tensor([1.0]) if item[1] in ['p', 'pf', 'l'] else torch.tensor([0.0])
